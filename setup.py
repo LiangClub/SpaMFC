@@ -12,6 +12,10 @@ Requirements:
 - seaborn >= 0.12
 - pyyaml >= 6.0
 - umap-learn >= 0.5
+- numba >= 0.56 (for gene correlation analysis)
+- tqdm >= 4.60 (for gene correlation analysis)
+- psutil >= 5.8 (for gene correlation analysis)
+- statsmodels >= 0.13 (for gene correlation analysis)
 - gseapy >= 1.0 (for enrichment analysis)
 - infercnvpy >= 0.4 (for CNV analysis)
 - openpyxl >= 3.0 (for Excel report generation)
@@ -21,7 +25,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SpaMFC",
-    version="2.0.0",
+    version="2.1.0",
     description="Spatial Multi-Feature Clustering for Spatial Transcriptomics Subtype Analysis",
     author="SpaMFC Team",
     author_email="spamfc@example.com",
@@ -39,17 +43,21 @@ setup(
         "seaborn>=0.12",
         "pyyaml>=6.0",
         "umap-learn>=0.5",
+        "numba>=0.56",
+        "tqdm>=4.60",
+        "psutil>=5.8",
+        "statsmodels>=0.13",
     ],
     extras_require={
         "enrichment": ["gseapy>=1.0"],
         "cnv": ["infercnvpy>=0.4"],
         "niche": ["scNiche>=1.1"],
         "report": ["openpyxl>=3.0"],
-        "all": ["gseapy>=1.0", "infercnvpy>=0.4", "openpyxl>=3.0"],
+        "all": ["gseapy>=1.0", "infercnvpy>=0.4", "scNiche>=1.1", "openpyxl>=3.0"],
     },
     entry_points={
         "console_scripts": [
-            "spamfc_cli=cli:main",
+            "SpaMFC=SpaMFC:main",
         ],
     },
     python_requires=">=3.10",

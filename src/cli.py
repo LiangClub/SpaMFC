@@ -5,10 +5,11 @@ Provides complete command line interface for SpaMFC analysis.
 Simplified feature selection with single --features parameter.
 
 Usage:
-    spamfc_cli run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "CAFs" --features spatial,expression
-    spamfc_cli run-multi --input data.h5ad --celltype-col "anno_cell2location_res" --celltypes "Malignant cells,CAFs,ILC"
-    spamfc_cli info --input data.h5ad --celltype-col "anno_cell2location_res"
-    spamfc_cli config --output ./my_config.yaml
+    SpaMFC run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "CAFs" --features spatial,expression
+    SpaMFC run-multi --input data.h5ad --celltype-col "anno_cell2location_res" --celltypes "Malignant cells,CAFs,ILC"
+    SpaMFC info --input data.h5ad --celltype-col "anno_cell2location_res"
+    SpaMFC config --output ./my_config.yaml
+    SpaMFC corr --input data.h5ad --target-genes EGFR,KRAS --de-genes GENE1,GENE2 --method spearman
 """
 
 import argparse
@@ -32,32 +33,35 @@ def create_parser() -> argparse.ArgumentParser:
     """Create main argument parser with all subcommands"""
     
     parser = argparse.ArgumentParser(
-        prog="spamfc_cli",
+        prog="SpaMFC",
         description="SpaMFC: Spatial Multi-Feature Clustering for Spatial Transcriptomics Subtype Analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # CAFs analysis with spatial+expression features
-  spamfc_cli run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "CAFs" --features spatial,expression
+  SpaMFC run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "CAFs" --features spatial,expression
   
   # Malignant cells with all features and fixed weights
-  spamfc_cli run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "Malignant cells" --features spatial,cnv,expression --fusion-method fixed --weights 0.3,0.3,0.4
+  SpaMFC run --input data.h5ad --celltype-col "anno_cell2location_res" --celltype "Malignant cells" --features spatial,cnv,expression --fusion-method fixed --weights 0.3,0.3,0.4
   
   # Multi-cell type analysis
-  spamfc_cli run-multi --input data.h5ad --celltype-col "anno_cell2location_res" --celltypes "Malignant cells,CAFs,ILC" --features spatial,expression
+  SpaMFC run-multi --input data.h5ad --celltype-col "anno_cell2location_res" --celltypes "Malignant cells,CAFs,ILC" --features spatial,expression
   
   # Show data info
-  spamfc_cli info --input data.h5ad --celltype-col "anno_cell2location_res"
+  SpaMFC info --input data.h5ad --celltype-col "anno_cell2location_res"
   
   # Generate config file
-  spamfc_cli config --output ./my_config.yaml --template cafs
+  SpaMFC config --output ./my_config.yaml --template cafs
+  
+  # Gene correlation analysis
+  SpaMFC corr --input data.h5ad --target-genes EGFR,KRAS --de-genes GENE1,GENE2 --method spearman
 """
     )
     
     parser.add_argument(
         "--version", "-v",
         action="version",
-        version="SpaMFC v2.0.0"
+        version="SpaMFC v2.1.0"
     )
     
     subparsers = parser.add_subparsers(
@@ -70,6 +74,7 @@ Examples:
     _add_run_multi_subparser(subparsers)
     _add_info_subparser(subparsers)
     _add_config_subparser(subparsers)
+    _add_corr_subparser(subparsers)
     
     return parser
 
@@ -182,6 +187,131 @@ def _add_config_subparser(subparsers):
         choices=["default", "malignant", "cafs", "immune"],
         default="default",
         help="Config template to use (default: default)"
+    )
+
+
+def _add_corr_subparser(subparsers):
+    """Add 'corr' subcommand for gene correlation analysis"""
+    
+    corr_parser = subparsers.add_parser(
+        "corr",
+        help="Gene correlation analysis",
+        description="Perform gene correlation analysis on spatial transcriptomics data."
+    )
+    
+    corr_parser.add_argument(
+        "--input", "-i",
+        type=str,
+        required=True,
+        help="Input h5ad file path"
+    )
+    
+    corr_parser.add_argument(
+        "--target-genes",
+        type=str,
+        required=True,
+        help="Target genes (comma-separated or file path)"
+    )
+    
+    corr_parser.add_argument(
+        "--de-genes",
+        type=str,
+        required=True,
+        help="DE genes (comma-separated or file path)"
+    )
+    
+    corr_parser.add_argument(
+        "--method",
+        type=str,
+        choices=["pearson", "spearman", "kendall"],
+        default="spearman",
+        help="Correlation method (default: spearman)"
+    )
+    
+    corr_parser.add_argument(
+        "--p-adjust",
+        type=str,
+        choices=["fdr_bh", "bonferroni", "holm", "none"],
+        default="fdr_bh",
+        help="P-value adjustment method (default: fdr_bh)"
+    )
+    
+    corr_parser.add_argument(
+        "--threshold-p",
+        type=float,
+        default=0.05,
+        help="P-value threshold (default: 0.05)"
+    )
+    
+    corr_parser.add_argument(
+        "--min-corr",
+        type=float,
+        default=0.0,
+        help="Minimum correlation threshold (default: 0.0)"
+    )
+    
+    corr_parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default="./correlation_results/",
+        help="Output directory (default: ./correlation_results/)"
+    )
+    
+    corr_parser.add_argument(
+        "--save-matrices",
+        action="store_true",
+        default=False,
+        help="Save full correlation matrices"
+    )
+    
+    corr_parser.add_argument(
+        "--matrix-format",
+        type=str,
+        choices=["npz", "csv", "csv.gz"],
+        default="npz",
+        help="Matrix format (default: npz)"
+    )
+    
+    corr_parser.add_argument(
+        "--n-workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers (default: auto)"
+    )
+    
+    corr_parser.add_argument(
+        "--max-memory",
+        type=int,
+        default=512,
+        help="Maximum memory limit in MB (default: 512)"
+    )
+    
+    corr_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=500,
+        help="Batch size for processing (default: 500)"
+    )
+    
+    corr_parser.add_argument(
+        "--sample-spots",
+        type=int,
+        default=None,
+        help="Sample spots for acceleration (default: None)"
+    )
+    
+    corr_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=True,
+        help="Verbose output (default: True)"
+    )
+    
+    corr_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Quiet mode"
     )
 
 
@@ -547,6 +677,73 @@ def validate_features_for_celltype(celltype: str, features: Dict[str, bool]) -> 
     return features
 
 
+def parse_gene_list(genes_str: str) -> List[str]:
+    """Parse gene list from comma-separated string or file path"""
+    
+    if os.path.isfile(genes_str):
+        with open(genes_str, 'r') as f:
+            genes = [line.strip() for line in f if line.strip()]
+    else:
+        genes = [g.strip() for g in genes_str.split(",")]
+    
+    return genes
+
+
+def corr_command(args):
+    """Execute 'corr' subcommand"""
+    
+    try:
+        import scanpy as sc
+    except ImportError:
+        print("Error: scanpy is not installed. Please install it first.")
+        sys.exit(1)
+    
+    from ..correlation import gene_correlation
+    
+    target_genes = parse_gene_list(args.target_genes)
+    de_genes = parse_gene_list(args.de_genes)
+    
+    print(f"\n{'='*60}")
+    print(f"SpaMFC Gene Correlation Analysis")
+    print(f"{'='*60}")
+    print(f"Input: {args.input}")
+    print(f"Output: {args.output}")
+    print(f"Target genes: {len(target_genes)} genes")
+    print(f"DE genes: {len(de_genes)} genes")
+    print(f"Method: {args.method}")
+    print(f"P-value adjustment: {args.p_adjust}")
+    print(f"P-value threshold: {args.threshold_p}")
+    print(f"Min correlation: {args.min_corr}")
+    print(f"{'='*60}\n")
+    
+    adata = sc.read_h5ad(args.input)
+    
+    p_adjust = None if args.p_adjust == "none" else args.p_adjust
+    
+    corr_df, pval_df, sig_pairs = gene_correlation(
+        adata,
+        target_genes=target_genes,
+        de_genes=de_genes,
+        method=args.method,
+        p_adjust=p_adjust,
+        threshold_p=args.threshold_p,
+        min_corr_threshold=args.min_corr,
+        output_dir=args.output,
+        max_memory_mb=args.max_memory,
+        n_workers=args.n_workers,
+        batch_size=args.batch_size,
+        sample_spots=args.sample_spots,
+        save_full_matrices=args.save_matrices,
+        matrix_format=args.matrix_format,
+        verbose=args.verbose and not args.quiet
+    )
+    
+    print(f"\n{'='*60}")
+    print(f"Found {len(sig_pairs)} significant correlation pairs")
+    print(f"Results saved to: {args.output}")
+    print(f"{'='*60}\n")
+
+
 def run_command(args):
     """Execute 'run' subcommand"""
     
@@ -789,7 +986,7 @@ def config_command(args):
         print(f"\nDefault config file generated: {args.output}")
     
     print(f"\nEdit the config file to customize your analysis parameters.")
-    print(f"Usage: spamfc_cli run --config {args.output} --input data.h5ad --celltype-col 'anno_cell2location_res' --celltype 'CAFs'\n")
+    print(f"Usage: SpaMFC run --config {args.output} --input data.h5ad --celltype-col 'anno_cell2location_res' --celltype 'CAFs'\n")
 
 
 def main():
@@ -810,6 +1007,8 @@ def main():
         info_command(args)
     elif args.command == "config":
         config_command(args)
+    elif args.command == "corr":
+        corr_command(args)
     else:
         parser.print_help()
 

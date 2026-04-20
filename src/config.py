@@ -104,6 +104,22 @@ class RuntimeConfig:
 
 
 @dataclass
+class CorrelationConfig:
+    """Gene correlation analysis configuration"""
+    method: str = "spearman"
+    p_adjust: str = "fdr_bh"
+    threshold_p: float = 0.05
+    min_corr_threshold: float = 0.0
+    max_memory_mb: int = 512
+    n_workers: Optional[int] = None
+    batch_size: int = 500
+    enable_numba: bool = True
+    sample_spots: Optional[int] = None
+    save_full_matrices: bool = False
+    matrix_format: str = "npz"
+
+
+@dataclass
 class SpaMFCConfig:
     """SpaMFC main configuration class"""
     input_path: str = ""
@@ -132,6 +148,7 @@ class SpaMFCConfig:
     unification_config: UnificationConfig = field(default_factory=UnificationConfig)
     visualization_config: VisualizationConfig = field(default_factory=VisualizationConfig)
     runtime_config: RuntimeConfig = field(default_factory=RuntimeConfig)
+    correlation_config: CorrelationConfig = field(default_factory=CorrelationConfig)
 
 
 class ConfigManager:
@@ -414,6 +431,19 @@ class ConfigManager:
                 "n_jobs": self.config.runtime_config.n_jobs,
                 "verbose": self.config.runtime_config.verbose,
                 "chunksize": self.config.runtime_config.chunksize
+            },
+            "correlation": {
+                "method": self.config.correlation_config.method,
+                "p_adjust": self.config.correlation_config.p_adjust,
+                "threshold_p": self.config.correlation_config.threshold_p,
+                "min_corr_threshold": self.config.correlation_config.min_corr_threshold,
+                "max_memory_mb": self.config.correlation_config.max_memory_mb,
+                "n_workers": self.config.correlation_config.n_workers,
+                "batch_size": self.config.correlation_config.batch_size,
+                "enable_numba": self.config.correlation_config.enable_numba,
+                "sample_spots": self.config.correlation_config.sample_spots,
+                "save_full_matrices": self.config.correlation_config.save_full_matrices,
+                "matrix_format": self.config.correlation_config.matrix_format
             }
         }
         

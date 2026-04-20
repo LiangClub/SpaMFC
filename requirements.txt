@@ -11,6 +11,12 @@ seaborn>=0.12
 pyyaml>=6.0
 umap-learn>=0.5
 
+# Gene correlation analysis dependencies
+numba>=0.56
+tqdm>=4.60
+psutil>=5.8
+statsmodels>=0.13
+
 # Optional dependencies for specific features
 # For functional enrichment analysis
 gseapy>=1.0
