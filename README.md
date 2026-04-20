@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.0.0-orange.svg)](https://github.com/spamfc/SpaMFC)
+[![Version](https://img.shields.io/badge/Version-0.0.1-orange.svg)](https://github.com/spamfc/SpaMFC)
 
 SpaMFC (Spatial Multi-Feature Clustering) 是一个用于空间转录组数据亚群精细分群分析的Python工具包。通过整合多种特征（空间邻域特征、CNV特征、基因表达特征、生态位特征），实现准确且稳健的亚群识别与注释。
 
