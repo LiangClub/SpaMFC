@@ -1,0 +1,104 @@
+# SpaMFC Default Configuration File
+# Users can freely choose which features to use
+
+# ==================== Data Input Configuration ====================
+data:
+  input_path: "./data/input.h5ad"
+  output_dir: "./results/"
+  sample_col: "sample_id"
+  celltype_col: "anno_cell2location_res"
+  spatial_key: "spatial"
+  cnv_key: "X_cnv"
+
+# ==================== Feature Fusion Method ====================
+# Options: adaptive (Random Forest weighting), fixed (pre-defined weights), concat (direct concatenation)
+fusion_method: "adaptive"
+
+# ==================== Feature Selection Configuration (User Configurable) ====================
+features:
+  # Spatial neighborhood features - User can enable/disable
+  spatial:
+    use: true
+    radius: 100
+    k_neighbors: 15
+    weight_method: "adaptive"
+    fixed_weight: 0.3
+    
+  # CNV features - Only for malignant cells, User can enable/disable
+  cnv:
+    use: false
+    pca_dim: 50
+    use_umap: true
+    umap_dim: 2
+    marker_filter: true
+    fixed_weight: 0.3
+    
+  # Gene expression features - User can enable/disable
+  expression:
+    use: true
+    min_expr_pct: 0.1
+    pca_dim: 50
+    use_umap: true
+    umap_dim: 2
+    pca_keep_dim: 30
+    fixed_weight: 0.4
+    
+  # Niche features (scNiche) - User can enable/disable
+  niche:
+    use: false
+    n_views: 3
+    target_k: 15
+    resolution: 0.3
+
+# ==================== NMF Configuration ====================
+nmf:
+  n_runs: 10
+  n_components: 5
+  init: "nndsvda"
+  max_iter: 1000
+  tol: 1e-4
+
+# ==================== Clustering Configuration ====================
+clustering:
+  method: "kmeans"
+  n_clusters: 5
+  resolution: 0.1
+  per_sample: true
+  n_bootstrap: 30
+  stability_threshold: 0.7
+
+# ==================== Marker Gene Analysis Configuration ====================
+marker_analysis:
+  method: "wilcoxon"
+  pval_threshold: 0.05
+  logfc_threshold: 0.25
+  top_n: 50
+
+# ==================== Functional Enrichment Configuration ====================
+enrichment:
+  gene_sets:
+    - "GO_Biological_Process_2023"
+    - "KEGG_2021_Human"
+  pval_threshold: 0.05
+  top_n: 20
+
+# ==================== Cross-sample Unification Configuration ====================
+unification:
+  enable: true
+  marker_weight: 0.4
+  pathway_weight: 0.3
+  niche_weight: 0.3
+  similarity_threshold: 0.6
+
+# ==================== Visualization Configuration ====================
+visualization:
+  save_plots: true
+  dpi: 300
+  format: "pdf"
+  show_plots: false
+
+# ==================== Runtime Configuration ====================
+runtime:
+  n_jobs: 2
+  verbose: true
+  chunksize: 500

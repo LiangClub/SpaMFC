@@ -1,0 +1,51 @@
+# Malignant Cells Configuration
+# Recommended: Enable all features (spatial + CNV + expression)
+
+celltype: "Malignant cells"
+
+data:
+  output_dir: "./results/malignant/"
+  sample_col: "sample_id"
+  celltype_col: "anno_cell2location_res"
+
+# Feature fusion method: adaptive/fixed/concat
+fusion_method: "adaptive"
+
+features:
+  spatial:
+    use: true
+    radius: 100
+    k_neighbors: 15
+    fixed_weight: 0.3
+    
+  cnv:
+    use: true
+    pca_dim: 50
+    use_umap: true
+    marker_filter: true
+    fixed_weight: 0.3
+    
+  expression:
+    use: true
+    pca_dim: 50
+    pca_keep_dim: 30
+    fixed_weight: 0.4
+    
+  niche:
+    use: false
+    fixed_weight: 0.0
+
+nmf:
+  n_runs: 10
+  n_components: 5
+
+clustering:
+  method: "kmeans"
+  n_clusters: 5
+  per_sample: true
+
+unification:
+  enable: true
+  marker_weight: 0.4
+  pathway_weight: 0.3
+  niche_weight: 0.3

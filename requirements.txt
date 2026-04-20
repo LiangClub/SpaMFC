@@ -1,0 +1,29 @@
+# SpaMFC Dependencies
+
+# Core dependencies
+scanpy>=1.10
+numpy>=1.20
+pandas>=2.0
+scikit-learn>=1.0
+scipy>=1.7
+matplotlib>=3.5
+seaborn>=0.12
+pyyaml>=6.0
+umap-learn>=0.5
+
+# Optional dependencies for specific features
+# For functional enrichment analysis
+gseapy>=1.0
+
+# For CNV analysis (malignant cells only)
+infercnvpy>=0.4
+
+# For niche analysis
+scNiche>=1.1
+
+# For Excel report generation
+openpyxl>=3.0
+
+# For data handling
+h5py>=3.0
+anndata>=0.8
