@@ -25,7 +25,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="SpaMFC",
-    version="2.1.0",
+    version="2.2.0",
     description="Spatial Multi-Feature Clustering for Spatial Transcriptomics Subtype Analysis",
     author="SpaMFC Team",
     author_email="spamfc@example.com",

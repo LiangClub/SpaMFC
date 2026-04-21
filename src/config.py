@@ -120,6 +120,25 @@ class CorrelationConfig:
 
 
 @dataclass
+class CNVInferenceConfig:
+    """CNV inference configuration using inferCNVpy"""
+    enable: bool = False
+    gtf_file: str = ""
+    reference_key: str = "cell_type"
+    reference_cat: List[str] = field(default_factory=list)
+    window_size: int = 100
+    step_size: int = 10
+    dynamic_threshold: float = 0.5
+    exclude_genes: List[str] = field(default_factory=list)
+    compute_scores: bool = True
+    clustering_resolution: float = 0.5
+    n_pcs: int = 30
+    n_neighbors: int = 15
+    run_umap: bool = True
+    cmap: str = "bwr"
+
+
+@dataclass
 class SpaMFCConfig:
     """SpaMFC main configuration class"""
     input_path: str = ""
@@ -149,6 +168,7 @@ class SpaMFCConfig:
     visualization_config: VisualizationConfig = field(default_factory=VisualizationConfig)
     runtime_config: RuntimeConfig = field(default_factory=RuntimeConfig)
     correlation_config: CorrelationConfig = field(default_factory=CorrelationConfig)
+    cnv_inference_config: CNVInferenceConfig = field(default_factory=CNVInferenceConfig)
 
 
 class ConfigManager:

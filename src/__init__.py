@@ -9,9 +9,10 @@ A modular pipeline for spatial transcriptomics subtype identification with:
 - Cross-sample subtype unification
 - Complete command line interface
 - Gene correlation analysis (Pearson, Spearman, Kendall)
+- CNV inference and visualization (inferCNVpy)
 """
 
-from .config import ConfigManager, SpaMFCConfig, FeatureConfig, CorrelationConfig
+from .config import ConfigManager, SpaMFCConfig, FeatureConfig, CorrelationConfig, CNVInferenceConfig
 from .pipeline import SpaMFCPipeline
 from .cli import create_parser, main as cli_main
 from .correlation import (
@@ -23,8 +24,22 @@ from .correlation import (
     load_matrices_from_npz,
     load_matrices_from_csv_gz,
 )
+from .cnv_inference import (
+    CNVInferencer,
+    run_cnv_inference,
+    add_genomic_positions,
+    load_gtf_file,
+    compute_cnv_score,
+    get_cnv_summary,
+)
+from .visualization import (
+    CNVVisualizer,
+    plot_chromosome_heatmap,
+    plot_cnv_umap,
+    plot_cnv_scores,
+)
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "SpaMFC Team"
 
 __all__ = [
@@ -33,6 +48,7 @@ __all__ = [
     "SpaMFCConfig",
     "FeatureConfig",
     "CorrelationConfig",
+    "CNVInferenceConfig",
     "create_parser",
     "cli_main",
     "GeneCorrelationAnalyzer",
@@ -42,4 +58,14 @@ __all__ = [
     "plot_correlation_heatmap",
     "load_matrices_from_npz",
     "load_matrices_from_csv_gz",
+    "CNVInferencer",
+    "run_cnv_inference",
+    "add_genomic_positions",
+    "load_gtf_file",
+    "compute_cnv_score",
+    "get_cnv_summary",
+    "CNVVisualizer",
+    "plot_chromosome_heatmap",
+    "plot_cnv_umap",
+    "plot_cnv_scores",
 ]

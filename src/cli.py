@@ -61,7 +61,7 @@ Examples:
     parser.add_argument(
         "--version", "-v",
         action="version",
-        version="SpaMFC v2.1.0"
+        version="SpaMFC v2.2.0"
     )
     
     subparsers = parser.add_subparsers(
@@ -75,6 +75,7 @@ Examples:
     _add_info_subparser(subparsers)
     _add_config_subparser(subparsers)
     _add_corr_subparser(subparsers)
+    _add_cnv_subparser(subparsers)
     
     return parser
 
@@ -308,6 +309,135 @@ def _add_corr_subparser(subparsers):
     )
     
     corr_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Quiet mode"
+    )
+
+
+def _add_cnv_subparser(subparsers):
+    """Add 'cnv' subcommand for CNV inference"""
+    
+    cnv_parser = subparsers.add_parser(
+        "cnv",
+        help="CNV inference and visualization",
+        description="Perform CNV inference using inferCNVpy for malignant cell analysis."
+    )
+    
+    cnv_parser.add_argument(
+        "--input", "-i",
+        type=str,
+        required=True,
+        help="Input h5ad file path"
+    )
+    
+    cnv_parser.add_argument(
+        "--gtf",
+        type=str,
+        required=True,
+        help="GTF file with gene genomic positions"
+    )
+    
+    cnv_parser.add_argument(
+        "--reference-key",
+        type=str,
+        required=True,
+        help="Reference key in adata.obs (e.g., 'cell_type')"
+    )
+    
+    cnv_parser.add_argument(
+        "--reference-cat",
+        type=str,
+        required=True,
+        help="Reference categories (comma-separated, e.g., 'Normal cells,Fibroblasts')"
+    )
+    
+    cnv_parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default="./cnv_results/",
+        help="Output directory (default: ./cnv_results/)"
+    )
+    
+    cnv_parser.add_argument(
+        "--window-size",
+        type=int,
+        default=100,
+        help="Window size for CNV smoothing (default: 100)"
+    )
+    
+    cnv_parser.add_argument(
+        "--step-size",
+        type=int,
+        default=10,
+        help="Step size for CNV smoothing (default: 10)"
+    )
+    
+    cnv_parser.add_argument(
+        "--resolution",
+        type=float,
+        default=0.5,
+        help="Leiden clustering resolution (default: 0.5)"
+    )
+    
+    cnv_parser.add_argument(
+        "--n-pcs",
+        type=int,
+        default=30,
+        help="Number of PCA components (default: 30)"
+    )
+    
+    cnv_parser.add_argument(
+        "--plot-heatmap",
+        action="store_true",
+        default=True,
+        help="Generate chromosome heatmap (default: True)"
+    )
+    
+    cnv_parser.add_argument(
+        "--plot-umap",
+        action="store_true",
+        default=True,
+        help="Generate CNV UMAP (default: True)"
+    )
+    
+    cnv_parser.add_argument(
+        "--plot-spatial",
+        action="store_true",
+        default=False,
+        help="Generate CNV spatial distribution plots"
+    )
+    
+    cnv_parser.add_argument(
+        "--sample-col",
+        type=str,
+        default="sample_id",
+        help="Sample column name for spatial plots (default: sample_id)"
+    )
+    
+    cnv_parser.add_argument(
+        "--spatial-key",
+        type=str,
+        default="spatial",
+        help="Spatial coordinates key in adata.obsm (default: spatial)"
+    )
+    
+    cnv_parser.add_argument(
+        "--cmap",
+        type=str,
+        default="bwr",
+        help="Colormap for CNV heatmap (default: bwr)"
+    )
+    
+    cnv_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=True,
+        help="Verbose output (default: True)"
+    )
+    
+    cnv_parser.add_argument(
         "--quiet",
         action="store_true",
         default=False,
@@ -989,6 +1119,107 @@ def config_command(args):
     print(f"Usage: SpaMFC run --config {args.output} --input data.h5ad --celltype-col 'anno_cell2location_res' --celltype 'CAFs'\n")
 
 
+def cnv_command(args):
+    """Execute 'cnv' subcommand"""
+    
+    try:
+        import scanpy as sc
+    except ImportError:
+        print("Error: scanpy is not installed. Please install it first.")
+        sys.exit(1)
+    
+    try:
+        import infercnvpy as cnv
+    except ImportError:
+        print("Error: infercnvpy is not installed. Please install it first.")
+        print("Install with: pip install infercnvpy")
+        sys.exit(1)
+    
+    from ..cnv_inference import CNVInferencer, run_cnv_inference
+    from ..visualization import CNVVisualizer
+    
+    reference_cat = [c.strip() for c in args.reference_cat.split(",")]
+    
+    print(f"\n{'='*60}")
+    print(f"SpaMFC CNV Inference Analysis")
+    print(f"{'='*60}")
+    print(f"Input: {args.input}")
+    print(f"GTF file: {args.gtf}")
+    print(f"Reference key: {args.reference_key}")
+    print(f"Reference categories: {reference_cat}")
+    print(f"Output: {args.output}")
+    print(f"Window size: {args.window_size}")
+    print(f"Resolution: {args.resolution}")
+    print(f"{'='*60}\n")
+    
+    adata = sc.read_h5ad(args.input)
+    
+    if args.reference_key not in adata.obs:
+        print(f"Error: Reference key '{args.reference_key}' not found in adata.obs")
+        print(f"Available columns: {list(adata.obs.columns)}")
+        sys.exit(1)
+    
+    inferencer = CNVInferencer(
+        window_size=args.window_size,
+        step_size=args.step_size,
+        clustering_resolution=args.resolution,
+        n_pcs=args.n_pcs,
+        verbose=args.verbose and not args.quiet
+    )
+    
+    adata = inferencer.run_pipeline(
+        adata,
+        gtf_file=args.gtf,
+        reference_key=args.reference_key,
+        reference_cat=reference_cat,
+        run_umap=args.plot_umap
+    )
+    
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    output_file = output_path / "cnv_annotated.h5ad"
+    adata.write_h5ad(output_file)
+    print(f"\n[CNV] Results saved to: {output_file}")
+    
+    if args.plot_heatmap:
+        visualizer = CNVVisualizer(
+            save_plots=True,
+            cmap=args.cmap,
+            verbose=args.verbose and not args.quiet
+        )
+        
+        visualizer.plot_cluster_cnv_heatmap(
+            adata,
+            output_dir=str(output_path),
+            celltype="CNV Analysis"
+        )
+    
+    if args.plot_spatial and args.spatial_key in adata.obsm:
+        visualizer = CNVVisualizer(save_plots=True)
+        
+        visualizer.plot_cnv_spatial(
+            adata,
+            output_dir=str(output_path / "spatial"),
+            sample_col=args.sample_col,
+            spatial_key=args.spatial_key,
+            title="CNV Score"
+        )
+    
+    summary = inferencer.get_cnv_summary(adata)
+    
+    print(f"\n{'='*60}")
+    print(f"CNV Analysis Summary")
+    print(f"{'='*60}")
+    if "n_cnv_clusters" in summary:
+        print(f"CNV clusters: {summary['n_cnv_clusters']}")
+    if "cnv_score_mean" in summary:
+        print(f"Mean CNV score: {summary['cnv_score_mean']:.3f}")
+    if "cnv_score_range" in summary:
+        print(f"CNV score range: [{summary['cnv_score_range'][0]:.3f}, {summary['cnv_score_range'][1]:.3f}]")
+    print(f"{'='*60}\n")
+
+
 def main():
     """Main entry point for command line interface"""
     
@@ -1009,6 +1240,8 @@ def main():
         config_command(args)
     elif args.command == "corr":
         corr_command(args)
+    elif args.command == "cnv":
+        cnv_command(args)
     else:
         parser.print_help()
 
