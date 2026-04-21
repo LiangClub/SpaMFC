@@ -31,7 +31,7 @@ setup(
     author_email="spamfc@example.com",
     url="https://github.com/spamfc/SpaMFC",
     license="MIT",
-    packages=find_packages(),
+    packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
         "scanpy>=1.10",
