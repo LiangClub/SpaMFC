@@ -43,6 +43,7 @@ from .unification.fusion import SimilarityFusion
 from .unification.mapping import SubtypeMapper
 from .visualization.spatial_plot import SpatialVisualizer
 from .visualization.report import ReportGenerator
+from .utils.logger import setup_logger, log_section, log_step
 
 
 class SpaMFCPipeline:
@@ -57,6 +58,12 @@ class SpaMFCPipeline:
         """
         self.config_manager = ConfigManager(config_path)
         self.config = self.config_manager.config
+        
+        self.logger = setup_logger(
+            "SpaMFC",
+            log_dir=Path(self.config.output_dir) / "logs",
+            verbose=self.config.runtime_config.verbose
+        )
         
         self._init_modules()
         
@@ -184,11 +191,8 @@ class SpaMFCPipeline:
         verbose = self.config.runtime_config.verbose
         
         if verbose:
-            print(f"\n{'='*50}")
-            print(f"SpaMFC Analysis for: {celltype}")
-            print(f"{'='*50}")
-            print(f"Active features: {self.config_manager.get_active_features()}")
-            print(f"{'='*50}\n")
+            log_section(self.logger, f"SpaMFC Analysis for: {celltype}")
+            self.logger.info(f"Active features: {self.config_manager.get_active_features()}")
         
         start_time = time.time()
         
@@ -205,13 +209,13 @@ class SpaMFCPipeline:
             raise ValueError(f"Cell type '{celltype}' not found in adata.obs['{celltype_col}']")
         
         if verbose:
-            print(f"Found {len(target_cells)} cells for {celltype}")
+            self.logger.info(f"Found {len(target_cells)} cells for {celltype}")
         
         feature_dfs = {}
         
         if self.config.use_spatial:
             if verbose:
-                print("Step 1: Extracting spatial neighborhood features...")
+                log_step(self.logger, 1, 14, "Extracting spatial neighborhood features")
             
             global_cell_types = adata.obs[celltype_col].unique().tolist()
             
@@ -223,11 +227,11 @@ class SpaMFCPipeline:
             if spatial_df is not None:
                 feature_dfs["spatial"] = spatial_df
                 if verbose:
-                    print(f"  Spatial features: {spatial_df.shape}")
+                    self.logger.info(f"  Spatial features: {spatial_df.shape}")
         
         if self.config.use_cnv:
             if verbose:
-                print("Step 2: Processing CNV features...")
+                log_step(self.logger, 2, 14, "Processing CNV features")
             
             cnv_df = self.cnv_processor.process_per_sample(
                 adata, target_cells,
@@ -239,11 +243,11 @@ class SpaMFCPipeline:
             if cnv_df is not None:
                 feature_dfs["cnv"] = cnv_df
                 if verbose:
-                    print(f"  CNV features: {cnv_df.shape}")
+                    self.logger.info(f"  CNV features: {cnv_df.shape}")
         
         if self.config.use_expression:
             if verbose:
-                print("Step 3: Processing expression features...")
+                log_step(self.logger, 3, 14, "Processing expression features")
             
             expr_df = self.expr_processor.process_per_sample(
                 adata, target_cells, sample_col
@@ -252,11 +256,11 @@ class SpaMFCPipeline:
             if expr_df is not None:
                 feature_dfs["expression"] = expr_df
                 if verbose:
-                    print(f"  Expression features: {expr_df.shape}")
+                    self.logger.info(f"  Expression features: {expr_df.shape}")
         
         if self.config.use_niche:
             if verbose:
-                print("Step 4: Processing niche features...")
+                log_step(self.logger, 4, 14, "Processing niche features")
             
             niche_df = self.niche_processor.process(
                 adata, target_cells, celltype_col, sample_col
@@ -265,13 +269,13 @@ class SpaMFCPipeline:
             if niche_df is not None:
                 feature_dfs["niche"] = niche_df
                 if verbose:
-                    print(f"  Niche features: {niche_df.shape}")
+                    self.logger.info(f"  Niche features: {niche_df.shape}")
         
         if len(feature_dfs) == 0:
             raise ValueError("No features extracted. Please enable at least one feature type.")
         
         if verbose:
-            print("\nStep 5: Calculating feature weights...")
+            log_step(self.logger, 5, 14, "Calculating feature weights")
         
         fixed_weights = {
             "spatial": self.config.spatial_config.fixed_weight,
@@ -283,27 +287,27 @@ class SpaMFCPipeline:
         weights = self.feature_fusion.get_weights(feature_dfs, fixed_weights)
         
         if verbose:
-            print(f"  Fusion method: {self.config.fusion_method}")
-            print(f"  Weights: {weights}")
+            self.logger.info(f"  Fusion method: {self.config.fusion_method}")
+            self.logger.info(f"  Weights: {weights}")
         
         if verbose:
-            print("\nStep 6: Fusing features...")
+            log_step(self.logger, 6, 14, "Fusing features")
         
         fused_df = self.feature_fusion.fuse(feature_dfs, fixed_weights)
         
         if verbose:
-            print(f"  Fused features: {fused_df.shape}")
+            self.logger.info(f"  Fused features: {fused_df.shape}")
         
         if verbose:
-            print("\nStep 7: NMF consensus decomposition...")
+            log_step(self.logger, 7, 14, "NMF consensus decomposition")
         
         W_df = self.nmf_consensus.decompose(fused_df)
         
         if verbose:
-            print(f"  NMF embedding: {W_df.shape}")
+            self.logger.info(f"  NMF embedding: {W_df.shape}")
         
         if verbose:
-            print("\nStep 8: Subtype clustering...")
+            log_step(self.logger, 8, 14, "Subtype clustering")
         
         adata = self.clusterer.cluster(adata, W_df, sample_col, celltype)
         
@@ -311,13 +315,13 @@ class SpaMFCPipeline:
         
         if verbose:
             subtype_counts = adata.obs[subtype_col].value_counts()
-            print(f"  Subtypes identified: {len(subtype_counts)}")
-            print(f"  Subtype distribution:")
+            self.logger.info(f"  Subtypes identified: {len(subtype_counts)}")
+            self.logger.info(f"  Subtype distribution:")
             for subtype, count in subtype_counts.items():
-                print(f"    {subtype}: {count}")
+                self.logger.info(f"    {subtype}: {count}")
         
         if verbose:
-            print("\nStep 9: Marker gene analysis...")
+            log_step(self.logger, 9, 14, "Marker gene analysis")
         
         markers_dict = self.marker_analyzer.analyze(adata, celltype, sample_col)
         
@@ -328,10 +332,10 @@ class SpaMFCPipeline:
         }
         
         if verbose:
-            print(f"  Marker genes identified for {len(markers_dict)} subtypes")
+            self.logger.info(f"  Marker genes identified for {len(markers_dict)} subtypes")
         
         if verbose:
-            print("\nStep 10: Functional enrichment analysis...")
+            log_step(self.logger, 10, 14, "Functional enrichment analysis")
         
         enrichment_results = self.enrichment_analyzer.analyze(markers_dict)
         
@@ -339,12 +343,12 @@ class SpaMFCPipeline:
         
         if verbose:
             n_enriched = sum(1 for r in enrichment_results.values() if r is not None)
-            print(f"  Enrichment results for {n_enriched} subtypes")
+            self.logger.info(f"  Enrichment results for {n_enriched} subtypes")
         
         niche_profiles = None
         if self.config.use_niche:
             if verbose:
-                print("\nStep 11: Niche analysis...")
+                log_step(self.logger, 11, 14, "Niche analysis")
             
             niche_profiles = self.niche_analyzer.get_subtype_niche_profiles(
                 adata, subtype_col, "scNiche"
@@ -354,7 +358,7 @@ class SpaMFCPipeline:
         
         if self.config.unification_config.enable:
             if verbose:
-                print("\nStep 12: Cross-sample subtype unification...")
+                log_step(self.logger, 12, 14, "Cross-sample subtype unification")
             
             subtypes = list(markers_dict.keys())
             
@@ -379,25 +383,25 @@ class SpaMFCPipeline:
                 self.results[celltype]["mapping_table"] = mapping_table
                 
                 if verbose:
-                    print(f"  Unified subtypes: {len(set(unified_names.values()))}")
-                    print(f"  Mapping summary:")
+                    self.logger.info(f"  Unified subtypes: {len(set(unified_names.values()))}")
+                    self.logger.info(f"  Mapping summary:")
                     for unified, count in pd.Series(unified_names.values()).value_counts().items():
-                        print(f"    {unified}: {count} original subtypes")
+                        self.logger.info(f"    {unified}: {count} original subtypes")
         
         if self.config.visualization_config.save_plots:
             if verbose:
-                print("\nStep 13: Generating visualizations...")
+                log_step(self.logger, 13, 14, "Generating visualizations")
             
             output_dir = self.config.output_dir
             
-            self.visualizer.plot_spatial_subtype(adata, celltype, output_dir, subtype_col, sample_col)
+            self.visualizer.plot_spatial_subtype(adata, celltype, output_dir, subtype_col, sample_col=sample_col)
             
-            self.visualizer.plot_marker_genes(adata, celltype, output_dir, markers_dict, sample_col)
+            self.visualizer.plot_marker_genes(adata, celltype, output_dir, markers_dict, sample_col=sample_col)
             
-            self.visualizer.plot_subtype_proportion(adata, celltype, output_dir, subtype_col, sample_col)
+            self.visualizer.plot_subtype_proportion(adata, celltype, output_dir, subtype_col, sample_col=sample_col)
         
         if verbose:
-            print("\nStep 14: Generating report...")
+            log_step(self.logger, 14, 14, "Generating report")
         
         mapping_table = self.results[celltype].get("mapping_table")
         
@@ -409,9 +413,7 @@ class SpaMFCPipeline:
         elapsed_time = time.time() - start_time
         
         if verbose:
-            print(f"\n{'='*50}")
-            print(f"Analysis completed in {elapsed_time:.2f} seconds")
-            print(f"{'='*50}\n")
+            log_section(self.logger, f"Analysis completed in {elapsed_time:.2f} seconds")
         
         return adata
     
@@ -435,10 +437,8 @@ class SpaMFCPipeline:
         verbose = self.config.runtime_config.verbose
         
         if verbose:
-            print(f"\n{'='*60}")
-            print(f"SpaMFC Multi-Cell Type Analysis")
-            print(f"Cell types: {celltypes}")
-            print(f"{'='*60}\n")
+            log_section(self.logger, "SpaMFC Multi-Cell Type Analysis")
+            self.logger.info(f"Cell types: {celltypes}")
         
         for celltype in celltypes:
             markers = markers_dict.get(celltype) if markers_dict else None
@@ -466,9 +466,7 @@ class SpaMFCPipeline:
             self.set_feature_usage(**original_config)
         
         if verbose:
-            print(f"\n{'='*60}")
-            print(f"All cell types analyzed successfully")
-            print(f"{'='*60}\n")
+            log_section(self.logger, "All cell types analyzed successfully")
         
         return adata
     
@@ -486,7 +484,8 @@ class SpaMFCPipeline:
         output_dir.mkdir(parents=True, exist_ok=True)
         
         for celltype, result in self.results.items():
-            celltype_dir = output_dir / celltype
+            celltype_safe = celltype.replace(" ", "_")
+            celltype_dir = output_dir / celltype_safe
             celltype_dir.mkdir(parents=True, exist_ok=True)
             
             if "markers" in result:

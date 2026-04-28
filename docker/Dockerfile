@@ -1,0 +1,57 @@
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+ENV PATH=/opt/conda/bin:$PATH
+ENV MAMBA_DOWNLOAD_RETRIES=15
+ENV MAMBA_REMOTE_FETCH_TIMEOUT_SECS=180
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    bzip2 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj -C /tmp bin/micromamba && \
+    mkdir -p /opt/conda && \
+    mv /tmp/bin/micromamba /opt/conda/bin/micromamba && \
+    /opt/conda/bin/micromamba shell init -s bash -p /opt/conda
+
+RUN echo "channels:" > /opt/conda/.condarc && \
+    echo "  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge" >> /opt/conda/.condarc && \
+    echo "  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda" >> /opt/conda/.condarc && \
+    echo "  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main" >> /opt/conda/.condarc && \
+    echo "show_channel_urls: true" >> /opt/conda/.condarc && \
+    echo "channel_priority: strict" >> /opt/conda/.condarc
+
+RUN echo "[global]" > /etc/pip.conf && \
+    echo "index-url = https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple" >> /etc/pip.conf && \
+    echo "trusted-host = mirrors.tuna.tsinghua.edu.cn" >> /etc/pip.conf
+
+COPY environment.yml /tmp/environment.yml
+
+RUN micromamba install --dry-run -n base -f /tmp/environment.yml && \
+    micromamba install -y -n base -f /tmp/environment.yml && \
+    micromamba clean --all --yes && \
+    rm /tmp/environment.yml
+
+RUN pip install --no-cache-dir torch==2.2.0 torchvision==0.17.0 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+RUN pip install --no-cache-dir dgl==1.1.0 -f https://data.dgl.ai/wheels/torch-2.2/repo.html
+
+RUN pip install --no-cache-dir git+https://github.com/ZJUFanLab/scNiche.git
+
+RUN useradd -m -s /bin/bash mambauser && \
+    chown -R mambauser:mambauser /opt/conda /app
+
+USER mambauser
+
+WORKDIR /app
+COPY --chown=mambauser:mambauser src/ ./src/
+COPY --chown=mambauser:mambauser setup.py .
+COPY --chown=mambauser:mambauser README.md .
+
+RUN pip install --no-cache-dir -e .
+
+CMD ["/bin/bash"]

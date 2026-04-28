@@ -14,6 +14,7 @@ Users can configure:
 """
 
 import os
+import html
 import pandas as pd
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -61,7 +62,7 @@ class ReportGenerator:
             mapping_table: Subtype mapping table
             niche_profiles: Niche profiles dictionary
         """
-        output_path = Path(output_dir) / celltype / "reports"
+        output_path = Path(output_dir) / celltype.replace(" ", "_") / "reports"
         output_path.mkdir(parents=True, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -157,7 +158,7 @@ class ReportGenerator:
 </head>
 <body>
     <h1>SpaMFC Subtype Analysis Report</h1>
-    <p>Cell Type: <strong>{celltype}</strong></p>
+    <p>Cell Type: <strong>{html.escape(str(celltype))}</strong></p>
     <p>Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
     
     <div class="summary">
@@ -180,8 +181,11 @@ class ReportGenerator:
 </html>
 """
         
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        try:
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except (IOError, OSError, PermissionError) as e:
+            warnings.warn(f"Failed to write HTML report: {e}")
     
     def _markers_to_dataframe(
         self,
@@ -294,14 +298,16 @@ class ReportGenerator:
         if not markers_dict:
             return "<p>No marker genes identified</p>"
         
-        html = "<table><tr><th>Subtype</th><th>Top Markers</th></tr>"
+        html_table = "<table><tr><th>Subtype</th><th>Top Markers</th></tr>"
         
         for subtype, genes in markers_dict.items():
             top_genes = genes[:10]
-            html += f"<tr><td>{subtype}</td><td>{', '.join(top_genes)}</td></tr>"
+            escaped_subtype = html.escape(str(subtype))
+            escaped_genes = html.escape(', '.join(str(g) for g in top_genes))
+            html_table += f"<tr><td>{escaped_subtype}</td><td>{escaped_genes}</td></tr>"
         
-        html += "</table>"
-        return html
+        html_table += "</table>"
+        return html_table
     
     def _enrichment_to_html(
         self,
@@ -311,22 +317,24 @@ class ReportGenerator:
         if not enrichment_results:
             return "<p>No enrichment results</p>"
         
-        html = ""
+        html_table = ""
         
         for subtype, results in enrichment_results.items():
-            html += f"<h3>{subtype}</h3>"
+            html_table += f"<h3>{html.escape(str(subtype))}</h3>"
             
             for gene_set, df in results.items():
                 if df is not None and len(df) > 0:
-                    html += f"<h4>{gene_set}</h4>"
-                    html += "<table><tr><th>Term</th><th>P-value</th></tr>"
+                    html_table += f"<h4>{html.escape(str(gene_set))}</h4>"
+                    html_table += "<table><tr><th>Term</th><th>P-value</th></tr>"
                     
                     for _, row in df.head(5).iterrows():
-                        html += f"<tr><td>{row.get('Term', '')}</td><td>{row.get('Adjusted P-value', '')}</td></tr>"
+                        term = html.escape(str(row.get('Term', '')))
+                        pval = html.escape(str(row.get('Adjusted P-value', '')))
+                        html_table += f"<tr><td>{term}</td><td>{pval}</td></tr>"
                     
-                    html += "</table>"
+                    html_table += "</table>"
         
-        return html
+        return html_table
     
     def _mapping_to_html(
         self,
@@ -336,14 +344,17 @@ class ReportGenerator:
         if mapping_table is None or mapping_table.empty:
             return ""
         
-        html = "<h2>Subtype Mapping</h2>"
-        html += "<table><tr><th>Original</th><th>Unified</th><th>Sample</th></tr>"
+        html_table = "<h2>Subtype Mapping</h2>"
+        html_table += "<table><tr><th>Original</th><th>Unified</th><th>Sample</th></tr>"
         
         for _, row in mapping_table.iterrows():
-            html += f"<tr><td>{row['original_subtype']}</td><td>{row['unified_subtype']}</td><td>{row['sample']}</td></tr>"
+            orig = html.escape(str(row.get('original_subtype', '')))
+            unified = html.escape(str(row.get('unified_subtype', '')))
+            sample = html.escape(str(row.get('sample', '')))
+            html_table += f"<tr><td>{orig}</td><td>{unified}</td><td>{sample}</td></tr>"
         
-        html += "</table>"
-        return html
+        html_table += "</table>"
+        return html_table
     
     def _niche_to_html(
         self,
@@ -353,13 +364,14 @@ class ReportGenerator:
         if niche_profiles is None:
             return ""
         
-        html = "<h2>Niche Profiles</h2>"
-        html += "<table><tr><th>Subtype</th><th>Primary Niche</th><th>Dominant Niches</th></tr>"
+        html_table = "<h2>Niche Profiles</h2>"
+        html_table += "<table><tr><th>Subtype</th><th>Primary Niche</th><th>Dominant Niches</th></tr>"
         
         for subtype, profile in niche_profiles.items():
-            primary = profile.get("primary_niche", "")
-            dominant = ",".join(profile.get("dominant_niches", []))
-            html += f"<tr><td>{subtype}</td><td>{primary}</td><td>{dominant}</td></tr>"
+            primary = html.escape(str(profile.get("primary_niche", "")))
+            dominant = html.escape(",".join(str(n) for n in profile.get("dominant_niches", [])))
+            escaped_subtype = html.escape(str(subtype))
+            html_table += f"<tr><td>{escaped_subtype}</td><td>{primary}</td><td>{dominant}</td></tr>"
         
-        html += "</table>"
-        return html
+        html_table += "</table>"
+        return html_table

@@ -51,13 +51,18 @@ setup(
     extras_require={
         "enrichment": ["gseapy>=1.0"],
         "cnv": ["infercnvpy>=0.4"],
-        "niche": ["scNiche>=1.1"],
+        "niche": ["scNiche @ git+https://github.com/ZJUFanLab/scNiche.git"],
         "report": ["openpyxl>=3.0"],
-        "all": ["gseapy>=1.0", "infercnvpy>=0.4", "scNiche>=1.1", "openpyxl>=3.0"],
+        "all": [
+            "gseapy>=1.0",
+            "infercnvpy>=0.4",
+            "scNiche @ git+https://github.com/ZJUFanLab/scNiche.git",
+            "openpyxl>=3.0",
+        ],
     },
     entry_points={
         "console_scripts": [
-            "SpaMFC=SpaMFC:main",
+            "SpaMFC=cli:main",
         ],
     },
     python_requires=">=3.10",

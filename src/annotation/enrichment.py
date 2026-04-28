@@ -67,7 +67,8 @@ class EnrichmentAnalyzer:
         
         for subtype, genes in markers_dict.items():
             if len(genes) < 5:
-                warnings.warn(f"Subtype {subtype} has fewer than 5 genes, skipping")
+                warnings.warn(f"Subtype {subtype} has fewer than 5 genes ({len(genes)}), skipping enrichment")
+                enrichment_results[subtype] = {}
                 continue
             
             subtype_results = {}
@@ -85,7 +86,10 @@ class EnrichmentAnalyzer:
                         sig_results = result.results[
                             result.results["Adjusted P-value"] < self.pval_threshold
                         ]
-                        subtype_results[gene_set] = sig_results.head(self.top_n)
+                        if len(sig_results) > 0:
+                            subtype_results[gene_set] = sig_results.head(self.top_n)
+                        else:
+                            subtype_results[gene_set] = pd.DataFrame()
                     else:
                         subtype_results[gene_set] = pd.DataFrame()
                     
@@ -137,7 +141,7 @@ class EnrichmentAnalyzer:
             else:
                 return pd.DataFrame()
             
-        except Exception as e:
+        except (ImportError, ValueError, RuntimeError, ConnectionError) as e:
             warnings.warn(f"Enrichment failed: {e}")
             return pd.DataFrame()
     

@@ -25,8 +25,8 @@ class FeatureConfig:
     weight_method: str = "adaptive"
     fixed_weight: float = 0.3
     pca_dim: int = 50
-    use_umap: bool = True
-    umap_dim: int = 2
+    use_umap: bool = False
+    umap_dim: int = 10
     marker_filter: bool = True
     min_expr_pct: float = 0.1
     pca_keep_dim: int = 30
@@ -181,9 +181,21 @@ class ConfigManager:
     
     def load_from_yaml(self, config_path: str) -> None:
         """Load configuration from YAML file"""
-        with open(config_path, "r", encoding="utf-8") as f:
-            yaml_config = yaml.safe_load(f)
-        self._parse_yaml_config(yaml_config)
+        config_file = Path(config_path)
+        if not config_file.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        if not config_file.is_file():
+            raise ValueError(f"Configuration path is not a file: {config_path}")
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                yaml_config = yaml.safe_load(f)
+            if yaml_config is None:
+                raise ValueError(f"Configuration file is empty or invalid: {config_path}")
+            self._parse_yaml_config(yaml_config)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse YAML configuration: {e}")
+        except (IOError, OSError, PermissionError) as e:
+            raise ValueError(f"Failed to read configuration file: {e}")
     
     def _parse_yaml_config(self, yaml_config: Dict) -> None:
         """Parse YAML configuration into SpaMFCConfig"""
@@ -298,6 +310,24 @@ class ConfigManager:
             verbose=runtime_cfg.get("verbose", True),
             chunksize=runtime_cfg.get("chunksize", 500)
         )
+        
+        cnv_inf_cfg = yaml_config.get("cnv_inference", {})
+        self.config.cnv_inference_config = CNVInferenceConfig(
+            enable=cnv_inf_cfg.get("enable", False),
+            gtf_file=cnv_inf_cfg.get("gtf_file", ""),
+            reference_key=cnv_inf_cfg.get("reference_key", "cell_type"),
+            reference_cat=cnv_inf_cfg.get("reference_cat", []),
+            window_size=cnv_inf_cfg.get("window_size", 100),
+            step_size=cnv_inf_cfg.get("step_size", 10),
+            dynamic_threshold=cnv_inf_cfg.get("dynamic_threshold", 0.5),
+            exclude_genes=cnv_inf_cfg.get("exclude_genes", []),
+            compute_scores=cnv_inf_cfg.get("compute_scores", True),
+            clustering_resolution=cnv_inf_cfg.get("clustering_resolution", 0.5),
+            n_pcs=cnv_inf_cfg.get("n_pcs", 30),
+            n_neighbors=cnv_inf_cfg.get("n_neighbors", 15),
+            run_umap=cnv_inf_cfg.get("run_umap", True),
+            cmap=cnv_inf_cfg.get("cmap", "bwr")
+        )
     
     def set_feature_usage(
         self,
@@ -330,9 +360,27 @@ class ConfigManager:
             if self.config.cnv_key not in ["X_cnv", "cnv"]:
                 print(f"Warning: CNV key '{self.config.cnv_key}' may not exist in adata.obsm")
         
+        if self.config.spatial_config.radius <= 0:
+            raise ValueError("Spatial radius must be positive")
+        if self.config.spatial_config.k_neighbors <= 0:
+            raise ValueError("k_neighbors must be positive")
+        if self.config.nmf_config.n_components < 2:
+            raise ValueError("NMF components must be at least 2")
+        if self.config.nmf_config.n_runs < 1:
+            raise ValueError("NMF runs must be at least 1")
+        if self.config.clustering_config.n_clusters < 2:
+            raise ValueError("Number of clusters must be at least 2")
+        if self.config.marker_config.top_n <= 0:
+            raise ValueError("marker_top_n must be positive")
+        if self.config.marker_config.pval_threshold <= 0 or self.config.marker_config.pval_threshold > 1:
+            raise ValueError("pval_threshold must be between 0 and 1")
+        
         output_dir = Path(self.config.output_dir)
         if not output_dir.exists():
-            output_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                raise ValueError(f"Failed to create output directory '{self.config.output_dir}': {e}")
         
         return True
     
@@ -464,6 +512,22 @@ class ConfigManager:
                 "sample_spots": self.config.correlation_config.sample_spots,
                 "save_full_matrices": self.config.correlation_config.save_full_matrices,
                 "matrix_format": self.config.correlation_config.matrix_format
+            },
+            "cnv_inference": {
+                "enable": self.config.cnv_inference_config.enable,
+                "gtf_file": self.config.cnv_inference_config.gtf_file,
+                "reference_key": self.config.cnv_inference_config.reference_key,
+                "reference_cat": self.config.cnv_inference_config.reference_cat,
+                "window_size": self.config.cnv_inference_config.window_size,
+                "step_size": self.config.cnv_inference_config.step_size,
+                "dynamic_threshold": self.config.cnv_inference_config.dynamic_threshold,
+                "exclude_genes": self.config.cnv_inference_config.exclude_genes,
+                "compute_scores": self.config.cnv_inference_config.compute_scores,
+                "clustering_resolution": self.config.cnv_inference_config.clustering_resolution,
+                "n_pcs": self.config.cnv_inference_config.n_pcs,
+                "n_neighbors": self.config.cnv_inference_config.n_neighbors,
+                "run_umap": self.config.cnv_inference_config.run_umap,
+                "cmap": self.config.cnv_inference_config.cmap
             }
         }
         

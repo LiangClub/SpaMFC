@@ -111,7 +111,7 @@ class NicheFeatureProcessor:
         self,
         adata,
         niche_col: str = "scNiche",
-        celltype_col: str
+        celltype_col: str = "cell_type"
     ) -> Optional[pd.DataFrame]:
         """
         Calculate niche composition (cell type proportions in each niche)

@@ -15,6 +15,7 @@ Usage:
 import argparse
 import sys
 import os
+import logging
 from pathlib import Path
 from typing import Optional, List, Dict
 import warnings
@@ -24,9 +25,13 @@ try:
 except ImportError:
     warnings.warn("scanpy not installed")
 
+from src.utils.logger import setup_logger, log_section
+
 
 VALID_FEATURES = ["spatial", "cnv", "expression", "niche"]
 VALID_FUSION_METHODS = ["adaptive", "fixed", "concat"]
+
+cli_logger = setup_logger("SpaMFC.CLI", save_log=False)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -335,8 +340,24 @@ def _add_cnv_subparser(subparsers):
     cnv_parser.add_argument(
         "--gtf",
         type=str,
-        required=True,
-        help="GTF file with gene genomic positions"
+        default=None,
+        help="Gene annotation file (GTF or TSV format: gene_symbol, chromosome, start, end). Required for infercnv method."
+    )
+    
+    cnv_parser.add_argument(
+        "--method",
+        type=str,
+        default="infercnv",
+        choices=["infercnv", "copykat"],
+        help="CNV inference method (default: infercnv). copykat auto-infers gene positions."
+    )
+    
+    cnv_parser.add_argument(
+        "--species",
+        type=str,
+        default="human",
+        choices=["human", "mouse"],
+        help="Species for gene annotation (default: human)"
     )
     
     cnv_parser.add_argument(
@@ -428,6 +449,13 @@ def _add_cnv_subparser(subparsers):
         type=str,
         default="bwr",
         help="Colormap for CNV heatmap (default: bwr)"
+    )
+    
+    cnv_parser.add_argument(
+        "--groupby",
+        type=str,
+        default=None,
+        help="Column to group cells for heatmap (default: use reference-key column)"
     )
     
     cnv_parser.add_argument(
@@ -750,10 +778,10 @@ def parse_features(features_str: str) -> Dict[str, bool]:
         if feature in VALID_FEATURES:
             features[f"use_{feature}"] = True
         else:
-            print(f"Warning: Unknown feature '{feature}', ignoring. Valid features: {VALID_FEATURES}")
+            cli_logger.warning(f"Unknown feature '{feature}', ignoring. Valid features: {VALID_FEATURES}")
     
     if not any(features.values()):
-        print(f"Warning: No valid features specified, using default 'spatial'")
+        cli_logger.warning(f"No valid features specified, using default 'spatial'")
         features["use_spatial"] = True
     
     return features
@@ -772,10 +800,17 @@ def parse_weights(weights_str: str, features_str: str) -> Dict[str, float]:
             weights[feature] = default_weight
         return weights
     
-    weights_list = [float(w.strip()) for w in weights_str.split(",")]
+    try:
+        weights_list = [float(w.strip()) for w in weights_str.split(",")]
+    except ValueError as e:
+        raise ValueError(f"Invalid weight value in '{weights_str}'. Weight values must be numbers: {e}")
+    
+    for w in weights_list:
+        if w < 0:
+            raise ValueError(f"Weight values must be non-negative: found {w}")
     
     if len(weights_list) != len(features_list):
-        print(f"Warning: Number of weights ({len(weights_list)}) does not match number of features ({len(features_list)})")
+        cli_logger.warning(f"Number of weights ({len(weights_list)}) does not match number of features ({len(features_list)})")
         if len(weights_list) < len(features_list):
             remaining = len(features_list) - len(weights_list)
             default_weight = 1.0 / len(features_list)
@@ -790,6 +825,8 @@ def parse_weights(weights_str: str, features_str: str) -> Dict[str, float]:
     total = sum(weights.values())
     if total > 0:
         weights = {k: v / total for k, v in weights.items()}
+    else:
+        raise ValueError("Total weight cannot be zero")
     
     return weights
 
@@ -801,7 +838,7 @@ def validate_features_for_celltype(celltype: str, features: Dict[str, bool]) -> 
     is_malignant = any(kw in celltype.lower() for kw in malignant_keywords)
     
     if features["use_cnv"] and not is_malignant:
-        print(f"Warning: CNV features are only recommended for malignant cells. "
+        cli_logger.warning(f"CNV features are only recommended for malignant cells. "
               f"Cell type '{celltype}' may not be malignant. CNV will still be used if data exists.")
     
     return features
@@ -811,10 +848,21 @@ def parse_gene_list(genes_str: str) -> List[str]:
     """Parse gene list from comma-separated string or file path"""
     
     if os.path.isfile(genes_str):
-        with open(genes_str, 'r') as f:
-            genes = [line.strip() for line in f if line.strip()]
+        file_path = os.path.abspath(genes_str)
+        file_ext = os.path.splitext(file_path)[1].lower()
+        valid_extensions = ['.txt', '.csv', '.tsv', '.list', '.genes']
+        if file_ext not in valid_extensions and file_ext != '':
+            warnings.warn(f"Unexpected file extension '{file_ext}' for gene list file")
+        try:
+            with open(genes_str, 'r', encoding='utf-8') as f:
+                genes = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        except (IOError, OSError, PermissionError) as e:
+            raise ValueError(f"Failed to read gene file '{genes_str}': {e}")
     else:
         genes = [g.strip() for g in genes_str.split(",")]
+    
+    if not genes:
+        raise ValueError("No genes found in input")
     
     return genes
 
@@ -825,26 +873,23 @@ def corr_command(args):
     try:
         import scanpy as sc
     except ImportError:
-        print("Error: scanpy is not installed. Please install it first.")
+        cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from ..correlation import gene_correlation
+    from src.correlation import gene_correlation
     
     target_genes = parse_gene_list(args.target_genes)
     de_genes = parse_gene_list(args.de_genes)
     
-    print(f"\n{'='*60}")
-    print(f"SpaMFC Gene Correlation Analysis")
-    print(f"{'='*60}")
-    print(f"Input: {args.input}")
-    print(f"Output: {args.output}")
-    print(f"Target genes: {len(target_genes)} genes")
-    print(f"DE genes: {len(de_genes)} genes")
-    print(f"Method: {args.method}")
-    print(f"P-value adjustment: {args.p_adjust}")
-    print(f"P-value threshold: {args.threshold_p}")
-    print(f"Min correlation: {args.min_corr}")
-    print(f"{'='*60}\n")
+    log_section(cli_logger, "SpaMFC Gene Correlation Analysis")
+    cli_logger.info(f"Input: {args.input}")
+    cli_logger.info(f"Output: {args.output}")
+    cli_logger.info(f"Target genes: {len(target_genes)} genes")
+    cli_logger.info(f"DE genes: {len(de_genes)} genes")
+    cli_logger.info(f"Method: {args.method}")
+    cli_logger.info(f"P-value adjustment: {args.p_adjust}")
+    cli_logger.info(f"P-value threshold: {args.threshold_p}")
+    cli_logger.info(f"Min correlation: {args.min_corr}")
     
     adata = sc.read_h5ad(args.input)
     
@@ -868,10 +913,8 @@ def corr_command(args):
         verbose=args.verbose and not args.quiet
     )
     
-    print(f"\n{'='*60}")
-    print(f"Found {len(sig_pairs)} significant correlation pairs")
-    print(f"Results saved to: {args.output}")
-    print(f"{'='*60}\n")
+    log_section(cli_logger, f"Found {len(sig_pairs)} significant correlation pairs")
+    cli_logger.info(f"Results saved to: {args.output}")
 
 
 def run_command(args):
@@ -880,11 +923,11 @@ def run_command(args):
     try:
         import scanpy as sc
     except ImportError:
-        print("Error: scanpy is not installed. Please install it first.")
+        cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from ..pipeline import SpaMFCPipeline
-    from ..config import ConfigManager
+    from src.pipeline import SpaMFCPipeline
+    from src.config import ConfigManager
     
     if args.config:
         pipeline = SpaMFCPipeline(args.config)
@@ -935,29 +978,26 @@ def run_command(args):
     if "niche" in weights:
         pipeline.config.niche_config.fixed_weight = weights["niche"]
     
-    print(f"\n{'='*60}")
-    print(f"SpaMFC Command Line Analysis")
-    print(f"{'='*60}")
-    print(f"Input: {args.input}")
-    print(f"Output: {args.output}")
-    print(f"Cell type column: {args.celltype_col}")
-    print(f"Cell type: {args.celltype}")
-    print(f"Features: {args.features}")
-    print(f"Fusion method: {args.fusion_method}")
+    log_section(cli_logger, "SpaMFC Command Line Analysis")
+    cli_logger.info(f"Input: {args.input}")
+    cli_logger.info(f"Output: {args.output}")
+    cli_logger.info(f"Cell type column: {args.celltype_col}")
+    cli_logger.info(f"Cell type: {args.celltype}")
+    cli_logger.info(f"Features: {args.features}")
+    cli_logger.info(f"Fusion method: {args.fusion_method}")
     if args.weights:
-        print(f"Fixed weights: {args.weights}")
-    print(f"{'='*60}\n")
+        cli_logger.info(f"Fixed weights: {args.weights}")
     
     adata = sc.read_h5ad(args.input)
     
     if args.celltype_col not in adata.obs:
-        print(f"Error: Cell type column '{args.celltype_col}' not found in adata.obs")
-        print(f"Available columns: {list(adata.obs.columns)}")
+        cli_logger.error(f"Cell type column '{args.celltype_col}' not found in adata.obs")
+        cli_logger.error(f"Available columns: {list(adata.obs.columns)}")
         sys.exit(1)
     
     if args.celltype not in adata.obs[args.celltype_col].values:
-        print(f"Error: Cell type '{args.celltype}' not found in column '{args.celltype_col}'")
-        print(f"Available cell types: {list(adata.obs[args.celltype_col].unique())}")
+        cli_logger.error(f"Cell type '{args.celltype}' not found in column '{args.celltype_col}'")
+        cli_logger.error(f"Available cell types: {list(adata.obs[args.celltype_col].unique())}")
         sys.exit(1)
     
     markers = args.markers if args.markers else None
@@ -970,8 +1010,7 @@ def run_command(args):
     output_file = output_path / f"{args.celltype.replace(' ', '_')}_subtype_annotated.h5ad"
     adata.write_h5ad(output_file)
     
-    print(f"\nResults saved to: {output_file}")
-    print(f"{'='*60}\n")
+    cli_logger.info(f"Results saved to: {output_file}")
 
 
 def run_multi_command(args):
@@ -980,10 +1019,10 @@ def run_multi_command(args):
     try:
         import scanpy as sc
     except ImportError:
-        print("Error: scanpy is not installed. Please install it first.")
+        cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from ..pipeline import SpaMFCPipeline
+    from src.pipeline import SpaMFCPipeline
     
     celltypes = [c.strip() for c in args.celltypes.split(",")]
     
@@ -1010,36 +1049,33 @@ def run_multi_command(args):
     if "niche" in weights:
         pipeline.config.niche_config.fixed_weight = weights["niche"]
     
-    print(f"\n{'='*60}")
-    print(f"SpaMFC Multi-Cell Type Analysis")
-    print(f"{'='*60}")
-    print(f"Input: {args.input}")
-    print(f"Output: {args.output}")
-    print(f"Cell type column: {args.celltype_col}")
-    print(f"Cell types: {celltypes}")
-    print(f"Features: {args.features}")
-    print(f"Fusion method: {args.fusion_method}")
+    log_section(cli_logger, "SpaMFC Multi-Cell Type Analysis")
+    cli_logger.info(f"Input: {args.input}")
+    cli_logger.info(f"Output: {args.output}")
+    cli_logger.info(f"Cell type column: {args.celltype_col}")
+    cli_logger.info(f"Cell types: {celltypes}")
+    cli_logger.info(f"Features: {args.features}")
+    cli_logger.info(f"Fusion method: {args.fusion_method}")
     if args.weights:
-        print(f"Fixed weights: {args.weights}")
-    print(f"{'='*60}\n")
+        cli_logger.info(f"Fixed weights: {args.weights}")
     
     adata = sc.read_h5ad(args.input)
     
     if args.celltype_col not in adata.obs:
-        print(f"Error: Cell type column '{args.celltype_col}' not found in adata.obs")
-        print(f"Available columns: {list(adata.obs.columns)}")
+        cli_logger.error(f"Cell type column '{args.celltype_col}' not found in adata.obs")
+        cli_logger.error(f"Available columns: {list(adata.obs.columns)}")
         sys.exit(1)
     
     available_celltypes = list(adata.obs[args.celltype_col].unique())
     missing_celltypes = [ct for ct in celltypes if ct not in available_celltypes]
     
     if missing_celltypes:
-        print(f"Warning: Cell types not found: {missing_celltypes}")
-        print(f"Available cell types: {available_celltypes}")
+        cli_logger.warning(f"Cell types not found: {missing_celltypes}")
+        cli_logger.warning(f"Available cell types: {available_celltypes}")
         celltypes = [ct for ct in celltypes if ct in available_celltypes]
         
         if not celltypes:
-            print("Error: No valid cell types to analyze")
+            cli_logger.error("No valid cell types to analyze")
             sys.exit(1)
     
     adata = pipeline.run_multi_celltypes(adata, celltypes)
@@ -1047,8 +1083,7 @@ def run_multi_command(args):
     output_file = Path(args.output) / "all_celltypes_subtype_annotated.h5ad"
     adata.write_h5ad(output_file)
     
-    print(f"\nResults saved to: {output_file}")
-    print(f"{'='*60}\n")
+    cli_logger.info(f"Results saved to: {output_file}")
 
 
 def info_command(args):
@@ -1057,44 +1092,40 @@ def info_command(args):
     try:
         import scanpy as sc
     except ImportError:
-        print("Error: scanpy is not installed. Please install it first.")
+        cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    print(f"\n{'='*60}")
-    print(f"Data Information: {args.input}")
-    print(f"{'='*60}\n")
+    log_section(cli_logger, f"Data Information: {args.input}")
     
     adata = sc.read_h5ad(args.input)
     
-    print(f"Cells: {adata.n_obs}")
-    print(f"Genes: {adata.n_vars}")
+    cli_logger.info(f"Cells: {adata.n_obs}")
+    cli_logger.info(f"Genes: {adata.n_vars}")
     
     if args.celltype_col in adata.obs:
         celltypes = adata.obs[args.celltype_col].value_counts()
-        print(f"\nCell Type Distribution (from '{args.celltype_col}'):")
+        cli_logger.info(f"Cell Type Distribution (from '{args.celltype_col}'):")
         for ct, count in celltypes.items():
-            print(f"  {ct}: {count} ({count/adata.n_obs*100:.1f}%)")
+            cli_logger.info(f"  {ct}: {count} ({count/adata.n_obs*100:.1f}%)")
     else:
-        print(f"\nWarning: Cell type column '{args.celltype_col}' not found")
-        print(f"Available columns: {list(adata.obs.columns)}")
+        cli_logger.warning(f"Cell type column '{args.celltype_col}' not found")
+        cli_logger.warning(f"Available columns: {list(adata.obs.columns)}")
     
     if args.sample_col in adata.obs:
         samples = adata.obs[args.sample_col].unique()
-        print(f"\nSamples: {len(samples)} ({', '.join(samples[:5])}...)")
+        cli_logger.info(f"Samples: {len(samples)} ({', '.join(samples[:5])}...)")
     
     if "spatial" in adata.obsm:
-        print(f"\nSpatial coordinates: Available")
+        cli_logger.info(f"Spatial coordinates: Available")
     
     if "X_cnv" in adata.obsm:
-        print(f"CNV matrix: Available")
-    
-    print(f"\n{'='*60}\n")
+        cli_logger.info(f"CNV matrix: Available")
 
 
 def config_command(args):
     """Execute 'config' subcommand"""
     
-    from ..config import ConfigManager
+    from src.config import ConfigManager
     
     template_files = {
         "default": "configs/default_config.yaml",
@@ -1108,15 +1139,15 @@ def config_command(args):
     if template_path and Path(template_path).exists():
         import shutil
         shutil.copy(template_path, args.output)
-        print(f"\nConfig file generated: {args.output}")
-        print(f"Template: {args.template}")
+        cli_logger.info(f"Config file generated: {args.output}")
+        cli_logger.info(f"Template: {args.template}")
     else:
         config_manager = ConfigManager()
         config_manager.save_to_yaml(args.output)
-        print(f"\nDefault config file generated: {args.output}")
+        cli_logger.info(f"Default config file generated: {args.output}")
     
-    print(f"\nEdit the config file to customize your analysis parameters.")
-    print(f"Usage: SpaMFC run --config {args.output} --input data.h5ad --celltype-col 'anno_cell2location_res' --celltype 'CAFs'\n")
+    cli_logger.info(f"Edit the config file to customize your analysis parameters.")
+    cli_logger.info(f"Usage: SpaMFC run --config {args.output} --input data.h5ad --celltype-col 'anno_cell2location_res' --celltype 'CAFs'")
 
 
 def cnv_command(args):
@@ -1125,72 +1156,90 @@ def cnv_command(args):
     try:
         import scanpy as sc
     except ImportError:
-        print("Error: scanpy is not installed. Please install it first.")
+        cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    try:
-        import infercnvpy as cnv
-    except ImportError:
-        print("Error: infercnvpy is not installed. Please install it first.")
-        print("Install with: pip install infercnvpy")
-        sys.exit(1)
+    if args.method == "infercnv":
+        try:
+            import infercnvpy as cnv
+        except ImportError:
+            cli_logger.error("infercnvpy is not installed. Please install it first.")
+            cli_logger.error("Install with: pip install infercnvpy")
+            sys.exit(1)
     
-    from ..cnv_inference import CNVInferencer, run_cnv_inference
-    from ..visualization import CNVVisualizer
+    from src.cnv_inference import CNVInferencer, run_cnv_inference, add_gene_location
+    from src.visualization import CNVVisualizer
     
     reference_cat = [c.strip() for c in args.reference_cat.split(",")]
     
-    print(f"\n{'='*60}")
-    print(f"SpaMFC CNV Inference Analysis")
-    print(f"{'='*60}")
-    print(f"Input: {args.input}")
-    print(f"GTF file: {args.gtf}")
-    print(f"Reference key: {args.reference_key}")
-    print(f"Reference categories: {reference_cat}")
-    print(f"Output: {args.output}")
-    print(f"Window size: {args.window_size}")
-    print(f"Resolution: {args.resolution}")
-    print(f"{'='*60}\n")
+    log_section(cli_logger, "SpaMFC CNV Inference Analysis")
+    cli_logger.info(f"Input: {args.input}")
+    cli_logger.info(f"Method: {args.method}")
+    cli_logger.info(f"Species: {args.species}")
+    cli_logger.info(f"Gene file: {args.gtf}")
+    cli_logger.info(f"Reference key: {args.reference_key}")
+    cli_logger.info(f"Reference categories: {reference_cat}")
+    cli_logger.info(f"Output: {args.output}")
+    cli_logger.info(f"Window size: {args.window_size}")
+    cli_logger.info(f"Resolution: {args.resolution}")
     
     adata = sc.read_h5ad(args.input)
     
     if args.reference_key not in adata.obs:
-        print(f"Error: Reference key '{args.reference_key}' not found in adata.obs")
-        print(f"Available columns: {list(adata.obs.columns)}")
+        cli_logger.error(f"Reference key '{args.reference_key}' not found in adata.obs")
+        cli_logger.error(f"Available columns: {list(adata.obs.columns)}")
         sys.exit(1)
     
-    inferencer = CNVInferencer(
-        window_size=args.window_size,
-        step_size=args.step_size,
-        clustering_resolution=args.resolution,
-        n_pcs=args.n_pcs,
+    adata = add_gene_location(
+        adata,
+        gene_file=args.gtf,
+        method=args.method,
+        species=args.species,
+        inplace=True,
         verbose=args.verbose and not args.quiet
     )
     
-    adata = inferencer.run_pipeline(
-        adata,
-        gtf_file=args.gtf,
-        reference_key=args.reference_key,
-        reference_cat=reference_cat,
-        run_umap=args.plot_umap
-    )
+    if args.method == "infercnv":
+        inferencer = CNVInferencer(
+            window_size=args.window_size,
+            step_size=args.step_size,
+            clustering_resolution=args.resolution,
+            n_pcs=args.n_pcs,
+            verbose=args.verbose and not args.quiet
+        )
+        
+        adata = inferencer.infercnv(
+            adata,
+            reference_key=args.reference_key,
+            reference_cat=reference_cat
+        )
+        
+        if args.plot_umap:
+            inferencer.pca(adata)
+            inferencer.neighbors(adata)
+            inferencer.leiden(adata)
+            inferencer.umap(adata)
+        
+        inferencer.compute_cnv_score(adata)
     
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
     
     output_file = output_path / "cnv_annotated.h5ad"
     adata.write_h5ad(output_file)
-    print(f"\n[CNV] Results saved to: {output_file}")
+    cli_logger.info(f"[CNV] Results saved to: {output_file}")
     
-    if args.plot_heatmap:
+    groupby_col = args.groupby if args.groupby else args.reference_key
+    
+    if args.plot_heatmap and args.method == "infercnv":
         visualizer = CNVVisualizer(
             save_plots=True,
-            cmap=args.cmap,
-            verbose=args.verbose and not args.quiet
+            cmap=args.cmap
         )
         
         visualizer.plot_cluster_cnv_heatmap(
             adata,
+            groupby=groupby_col,
             output_dir=str(output_path),
             celltype="CNV Analysis"
         )
@@ -1206,18 +1255,16 @@ def cnv_command(args):
             title="CNV Score"
         )
     
-    summary = inferencer.get_cnv_summary(adata)
-    
-    print(f"\n{'='*60}")
-    print(f"CNV Analysis Summary")
-    print(f"{'='*60}")
-    if "n_cnv_clusters" in summary:
-        print(f"CNV clusters: {summary['n_cnv_clusters']}")
-    if "cnv_score_mean" in summary:
-        print(f"Mean CNV score: {summary['cnv_score_mean']:.3f}")
-    if "cnv_score_range" in summary:
-        print(f"CNV score range: [{summary['cnv_score_range'][0]:.3f}, {summary['cnv_score_range'][1]:.3f}]")
-    print(f"{'='*60}\n")
+    if args.method == "infercnv":
+        summary = inferencer.get_cnv_summary(adata)
+        
+        log_section(cli_logger, "CNV Analysis Summary")
+        if "n_cnv_clusters" in summary:
+            cli_logger.info(f"CNV clusters: {summary['n_cnv_clusters']}")
+        if "cnv_score_mean" in summary:
+            cli_logger.info(f"Mean CNV score: {summary['cnv_score_mean']:.3f}")
+        if "cnv_score_range" in summary:
+            cli_logger.info(f"CNV score range: [{summary['cnv_score_range'][0]:.3f}, {summary['cnv_score_range'][1]:.3f}]")
 
 
 def main():

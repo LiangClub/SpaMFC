@@ -84,7 +84,7 @@ class SpatialFeatureExtractor:
         tumor_center = target_coords.mean(axis=0)
         
         cell_center_dist = np.linalg.norm(target_coords - tumor_center, axis=1)
-        if cell_center_dist.max() > 0:
+        if len(cell_center_dist) > 0 and cell_center_dist.max() > 0:
             cell_center_dist = MinMaxScaler().fit_transform(
                 cell_center_dist.reshape(-1, 1)
             ).flatten()
@@ -94,10 +94,9 @@ class SpatialFeatureExtractor:
         env_features = []
         
         for idx, cell in enumerate(target_cells):
-            try:
-                cell_idx = adata.obs_names.get_loc(cell)
-            except KeyError:
+            if cell not in adata.obs_names:
                 continue
+            cell_idx = adata.obs_names.get_loc(cell)
             
             distances, neighbor_indices = tree.query(
                 coords[cell_idx].reshape(1, -1),

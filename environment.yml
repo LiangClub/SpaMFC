@@ -1,0 +1,30 @@
+name: spamfc
+dependencies:
+  - python=3.11
+  - pip
+  # Core scientific stack
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - pyyaml
+  # Dimension reduction / clustering
+  - umap-learn
+  - scanpy>=1.10
+  # Gene correlation analysis
+  - numba>=0.56
+  - tqdm>=4.60
+  - psutil>=5.8
+  - statsmodels>=0.13
+  # Data I/O
+  - h5py>=3.0
+  - anndata>=0.8
+  # Optional features (conda)
+  - gseapy>=1.0
+  - infercnvpy>=0.4
+  - openpyxl>=3.0
+  # pip-only packages
+  - pip:
+    - scNiche @ git+https://github.com/ZJUFanLab/scNiche.git

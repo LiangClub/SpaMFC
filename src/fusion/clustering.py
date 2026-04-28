@@ -162,7 +162,7 @@ class SubtypeClusterer:
                 sc.pp.neighbors(adata_nmf, n_neighbors=min(10, len(W_sample) - 1))
                 sc.tl.leiden(adata_nmf, resolution=self.resolution)
                 labels = adata_nmf.obs["leiden"].values.astype(int)
-            except Exception as e:
+            except (ImportError, ValueError, RuntimeError) as e:
                 warnings.warn(f"Leiden clustering failed: {e}, using KMeans")
                 kmeans = KMeans(n_clusters=n_clusters, random_state=0)
                 labels = kmeans.fit_predict(W_sample.values)

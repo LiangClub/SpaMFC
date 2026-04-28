@@ -73,13 +73,13 @@ class SimilarityFusion:
         
         fused_sim = marker_weight * marker_sim
         
-        if pathway_sim is not None and len(pathway_sim) > 0:
+        if pathway_sim is not None and np.size(pathway_sim) > 0:
             if pathway_sim.shape == (n, n):
                 fused_sim += pathway_weight * pathway_sim
             else:
                 warnings.warn("Pathway similarity matrix shape mismatch")
         
-        if niche_sim is not None and len(niche_sim) > 0:
+        if niche_sim is not None and np.size(niche_sim) > 0:
             if niche_sim.shape == (n, n):
                 fused_sim += niche_weight * niche_sim
             else:

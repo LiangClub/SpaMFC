@@ -91,9 +91,8 @@ class CNVInferencer:
             reference_key=reference_key,
             reference_cat=reference_cat,
             window_size=self.window_size,
-            step_size=self.step_size,
+            step=self.step_size,
             dynamic_threshold=self.dynamic_threshold,
-            exclude_genes=self.exclude_genes,
             layer=layer,
             inplace=inplace
         )
@@ -229,8 +228,13 @@ class CNVInferencer:
         if "X_cnv" in adata.obsm:
             cnv_matrix = adata.obsm["X_cnv"]
             summary["cnv_matrix_shape"] = cnv_matrix.shape
-            summary["cnv_mean"] = np.mean(cnv_matrix)
-            summary["cnv_std"] = np.std(cnv_matrix)
+            if hasattr(cnv_matrix, "toarray"):
+                cnv_dense = cnv_matrix.toarray()
+                summary["cnv_mean"] = np.mean(cnv_dense)
+                summary["cnv_std"] = np.std(cnv_dense)
+            else:
+                summary["cnv_mean"] = np.mean(cnv_matrix)
+                summary["cnv_std"] = np.std(cnv_matrix)
         
         if "cnv_score" in adata.obs.columns:
             summary["cnv_score_mean"] = adata.obs["cnv_score"].mean()

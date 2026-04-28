@@ -15,11 +15,19 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional
 import warnings
+import sys
 
 try:
     import scanpy as sc
 except ImportError:
     warnings.warn("scanpy not installed, marker analysis will not work")
+
+MEMORY_WARNING_THRESHOLD_MB = 500
+
+
+def _estimate_memory_usage(n_cells: int, n_genes: int) -> float:
+    estimated_mb = (n_cells * n_genes * 8) / (1024 * 1024)
+    return estimated_mb
 
 
 class MarkerGeneAnalyzer:
@@ -91,6 +99,12 @@ class MarkerGeneAnalyzer:
             
             try:
                 if hasattr(adata_subtype.X, "toarray"):
+                    estimated_mb = _estimate_memory_usage(adata_subtype.n_obs, adata_subtype.n_vars)
+                    if estimated_mb > MEMORY_WARNING_THRESHOLD_MB:
+                        warnings.warn(
+                            f"Large matrix conversion: {adata_subtype.n_obs} cells x {adata_subtype.n_vars} genes "
+                            f"(estimated {estimated_mb:.1f} MB). Consider filtering genes first."
+                        )
                     adata_subtype.X = adata_subtype.X.toarray()
                 
                 sc.pp.normalize_total(adata_subtype, target_sum=1e4)

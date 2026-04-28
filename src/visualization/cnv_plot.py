@@ -101,8 +101,11 @@ class CNVVisualizer:
             else:
                 fig = fig_axes.figure if hasattr(fig_axes, 'figure') else fig_axes
             
-            fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
-            print(f"[CNV Plot] Saved: {output_path}")
+            try:
+                fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
+                print(f"[CNV Plot] Saved: {output_path}")
+            except (IOError, OSError, PermissionError) as e:
+                warnings.warn(f"Failed to save plot to {output_path}: {e}")
         
         if self.show_plots:
             plt.show()
@@ -155,8 +158,11 @@ class CNVVisualizer:
             else:
                 fig = fig_axes.figure if hasattr(fig_axes, 'figure') else fig_axes
             
-            fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
-            print(f"[CNV Plot] Saved: {output_path}")
+            try:
+                fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
+                print(f"[CNV Plot] Saved: {output_path}")
+            except (IOError, OSError, PermissionError) as e:
+                warnings.warn(f"Failed to save plot to {output_path}: {e}")
         
         if self.show_plots:
             plt.show()
@@ -198,8 +204,11 @@ class CNVVisualizer:
         if self.save_plots and output_path:
             output_dir = Path(output_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
-            print(f"[CNV Plot] Saved: {output_path}")
+            try:
+                fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
+                print(f"[CNV Plot] Saved: {output_path}")
+            except (IOError, OSError, PermissionError) as e:
+                warnings.warn(f"Failed to save plot to {output_path}: {e}")
         
         if self.show_plots:
             plt.show()
@@ -239,8 +248,11 @@ class CNVVisualizer:
         if self.save_plots and output_path:
             output_dir = Path(output_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
-            print(f"[CNV Plot] Saved: {output_path}")
+            try:
+                fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
+                print(f"[CNV Plot] Saved: {output_path}")
+            except (IOError, OSError, PermissionError) as e:
+                warnings.warn(f"Failed to save plot to {output_path}: {e}")
         
         if self.show_plots:
             plt.show()
@@ -283,8 +295,11 @@ class CNVVisualizer:
         if self.save_plots and output_path:
             output_dir = Path(output_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
-            print(f"[CNV Plot] Saved: {output_path}")
+            try:
+                fig.savefig(output_path, dpi=self.dpi, bbox_inches="tight")
+                print(f"[CNV Plot] Saved: {output_path}")
+            except (IOError, OSError, PermissionError) as e:
+                warnings.warn(f"Failed to save plot to {output_path}: {e}")
         
         if self.show_plots:
             plt.show()
@@ -351,8 +366,11 @@ class CNVVisualizer:
             
             if self.save_plots and output_dir:
                 fig_path = output_path / f"{sample}_cnv_spatial.{self.format}"
-                fig.savefig(fig_path, dpi=self.dpi, bbox_inches="tight")
-                print(f"[CNV Plot] Saved: {fig_path}")
+                try:
+                    fig.savefig(fig_path, dpi=self.dpi, bbox_inches="tight")
+                    print(f"[CNV Plot] Saved: {fig_path}")
+                except (IOError, OSError, PermissionError) as e:
+                    warnings.warn(f"Failed to save plot to {fig_path}: {e}")
             
             figs.append(fig)
             

@@ -212,7 +212,7 @@ class FeatureFusion:
             
             return weights
             
-        except Exception as e:
+        except (ValueError, RuntimeError, ImportError) as e:
             warnings.warn(f"Random Forest failed: {e}, using equal weights")
             return {k: 1.0 / len(active_features) for k in active_features}
     

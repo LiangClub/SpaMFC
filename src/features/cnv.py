@@ -99,7 +99,8 @@ class CNVFeatureProcessor:
             )
         
         n_pca = min(self.pca_dim, len(target_cells) - 1, cnv_scaled.shape[1])
-        if n_pca < 2:
+        n_output = min(self.pca_dim, n_pca)
+        if n_output < 2:
             warnings.warn("Not enough samples for PCA, returning raw features")
             return pd.DataFrame(
                 cnv_scaled[:, :min(10, cnv_scaled.shape[1])],
@@ -113,7 +114,7 @@ class CNVFeatureProcessor:
         if self.use_umap:
             try:
                 umap_model = umap.UMAP(
-                    n_components=self.umap_dim,
+                    n_components=min(self.umap_dim, n_pca),
                     random_state=0,
                     n_neighbors=min(5, len(target_cells) - 1)
                 )
@@ -121,20 +122,20 @@ class CNVFeatureProcessor:
                 cnv_dim_df = pd.DataFrame(
                     cnv_umap,
                     index=target_cells,
-                    columns=[f"CNV_UMAP{i+1}" for i in range(self.umap_dim)]
+                    columns=[f"CNV_UMAP{i+1}" for i in range(cnv_umap.shape[1])]
                 )
-            except Exception as e:
+            except (ValueError, RuntimeError, ImportError) as e:
                 warnings.warn(f"UMAP failed: {e}, using PCA features instead")
                 cnv_dim_df = pd.DataFrame(
-                    cnv_pca[:, :min(10, n_pca)],
+                    cnv_pca[:, :n_output],
                     index=target_cells,
-                    columns=[f"CNV_PC{i+1}" for i in range(min(10, n_pca))]
+                    columns=[f"CNV_PC{i+1}" for i in range(n_output)]
                 )
         else:
             cnv_dim_df = pd.DataFrame(
-                cnv_pca[:, :min(10, n_pca)],
+                cnv_pca[:, :n_output],
                 index=target_cells,
-                columns=[f"CNV_PC{i+1}" for i in range(min(10, n_pca))]
+                columns=[f"CNV_PC{i+1}" for i in range(n_output)]
             )
         
         cnv_dim_df = cnv_dim_df.fillna(0.0)

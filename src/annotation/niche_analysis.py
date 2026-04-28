@@ -89,7 +89,7 @@ class NicheAnalyzer:
             
             return adata
             
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError, ValueError) as e:
             warnings.warn(f"scNiche clustering failed: {e}")
             return adata
     
@@ -97,7 +97,7 @@ class NicheAnalyzer:
         self,
         adata,
         niche_col: str = "scNiche",
-        celltype_col: str
+        celltype_col: str = "cell_type"
     ) -> pd.DataFrame:
         """
         Calculate niche composition (cell type proportions in each niche)

@@ -126,7 +126,7 @@ class ExpressionFeatureProcessor:
                     columns=[f"Expr_UMAP{i+1}" for i in range(self.umap_dim)]
                 )
                 expr_dim_df = pd.concat([expr_dim_df, expr_umap_df], axis=1)
-            except Exception as e:
+            except (ValueError, RuntimeError, ImportError) as e:
                 warnings.warn(f"UMAP failed: {e}")
         
         pca_keep = min(self.pca_keep_dim, n_pca)

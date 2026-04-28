@@ -6,11 +6,12 @@ Functions:
 1. Load GTF files
 2. Add chromosome information to AnnData
 3. Validate genomic positions
+4. Support multiple CNV methods (infercnv, copykat)
 """
 
 import numpy as np
 import pandas as pd
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import warnings
 from pathlib import Path
 
@@ -21,6 +22,113 @@ except ImportError:
     INFERCNVPY_AVAILABLE = False
     warnings.warn("infercnvpy not installed")
 
+try:
+    import scanpy as sc
+    SCANPY_AVAILABLE = True
+except ImportError:
+    SCANPY_AVAILABLE = False
+    warnings.warn("scanpy not installed")
+
+
+def add_gene_location(
+    adata,
+    gene_file: Optional[str] = None,
+    method: str = "infercnv",
+    species: str = "human",
+    inplace: bool = True,
+    verbose: bool = True
+):
+    """
+    Dynamic gene location processing for CNV inference
+    
+    Supports multiple CNV methods:
+    - copykat: CopyKAT automatically infers gene positions, no explicit file needed
+    - infercnv: Requires gene annotation file
+    
+    Parameters:
+        adata: AnnData object
+        gene_file: Path to gene annotation file (TSV format: gene_symbol, chromosome, start, end)
+        method: CNV method ('infercnv' or 'copykat')
+        species: Species name ('human' or 'mouse')
+        inplace: Whether to modify adata inplace
+        verbose: Print progress information
+    
+    Returns:
+        AnnData with genomic position information in .var
+    """
+    if not inplace:
+        adata = adata.copy()
+    
+    if method == 'copykat':
+        if verbose:
+            print(f"[GeneLocation] CopyKAT automatically infers {species} gene positions")
+        return adata
+    
+    if {'chromosome', 'start', 'end'}.issubset(adata.var.columns):
+        if verbose:
+            n_genes = adata.var['chromosome'].notna().sum()
+            print(f"[GeneLocation] Detected existing chromosome position info ({n_genes} genes)")
+        return adata
+    
+    if gene_file is None:
+        raise ValueError("InferCNV requires gene annotation file. Please provide --gtf parameter.")
+    
+    gene_path = Path(gene_file)
+    if not gene_path.exists():
+        raise FileNotFoundError(f"Gene annotation file not found: {gene_file}")
+    
+    if verbose:
+        print(f"[GeneLocation] Loading gene positions from: {gene_file}")
+    
+    try:
+        gene_df = pd.read_csv(
+            gene_file,
+            sep='\t',
+            header=None,
+            names=['gene_symbol', 'chromosome', 'start', 'end'],
+            dtype={'chromosome': str, 'start': int, 'end': int}
+        )
+    except Exception as e:
+        raise ValueError(f"Failed to read gene annotation file: {str(e)}")
+    
+    if verbose:
+        print(f"[GeneLocation] Loaded {len(gene_df)} gene entries")
+    
+    original_var = adata.var.copy()
+    
+    adata.var = adata.var.merge(
+        gene_df.set_index('gene_symbol'),
+        how='left',
+        left_index=True,
+        right_index=True
+    )
+    
+    n_matched = adata.var['chromosome'].notna().sum()
+    n_total = adata.n_vars
+    if verbose:
+        print(f"[GeneLocation] Matched {n_matched}/{n_total} genes ({n_matched/n_total*100:.1f}%)")
+    
+    valid_chromosomes = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY']
+    
+    adata = adata[:, adata.var['chromosome'].notna()]
+    
+    adata.var['chromosome'] = pd.Categorical(
+        adata.var['chromosome'],
+        categories=valid_chromosomes,
+        ordered=True
+    )
+    
+    adata.var = adata.var.sort_values(['chromosome', 'start'])
+    adata = adata[:, adata.var.index]
+    
+    if verbose:
+        n_final = adata.n_vars
+        print(f"[GeneLocation] Final: {n_final} genes with valid positions")
+        chromosomes = adata.var['chromosome'].unique()
+        print(f"[GeneLocation] Chromosomes: {list(chromosomes)}")
+    
+    return adata
+
 
 def load_gtf_file(gtf_file: str) -> pd.DataFrame:
     gtf_path = Path(gtf_file)
@@ -29,41 +137,69 @@ def load_gtf_file(gtf_file: str) -> pd.DataFrame:
         raise FileNotFoundError(f"GTF file not found: {gtf_file}")
     
     gtf_data = []
+    skipped_lines = 0
+    parse_errors = 0
     
-    with open(gtf_file, 'r') as f:
-        for line in f:
-            if line.startswith('#'):
-                continue
-            
-            parts = line.strip().split('\t')
-            if len(parts) < 9:
-                continue
-            
-            if parts[2] != 'gene':
-                continue
-            
-            chrom = parts[0]
-            start = int(parts[3])
-            end = int(parts[4])
-            
-            attributes = parts[8]
-            gene_name = None
-            
-            for attr in attributes.split(';'):
-                attr = attr.strip()
-                if attr.startswith('gene_name'):
-                    gene_name = attr.split('"')[1]
-                    break
-                elif attr.startswith('gene_id'):
-                    gene_name = attr.split('"')[1]
-            
-            if gene_name:
-                gtf_data.append({
-                    'gene_name': gene_name,
-                    'chromosome': chrom,
-                    'start': start,
-                    'end': end
-                })
+    try:
+        with open(gtf_file, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                if line.startswith('#'):
+                    continue
+                
+                try:
+                    parts = line.strip().split('\t')
+                    if len(parts) < 9:
+                        skipped_lines += 1
+                        continue
+                    
+                    if parts[2] != 'gene':
+                        continue
+                    
+                    chrom = parts[0]
+                    try:
+                        start = int(parts[3])
+                        end = int(parts[4])
+                    except ValueError:
+                        parse_errors += 1
+                        continue
+                    
+                    attributes = parts[8]
+                    gene_name = None
+                    
+                    for attr in attributes.split(';'):
+                        attr = attr.strip()
+                        if attr.startswith('gene_name'):
+                            try:
+                                gene_name = attr.split('"')[1]
+                            except IndexError:
+                                continue
+                            break
+                        elif attr.startswith('gene_id'):
+                            try:
+                                gene_name = attr.split('"')[1]
+                            except IndexError:
+                                continue
+                    
+                    if gene_name:
+                        gtf_data.append({
+                            'gene_name': gene_name,
+                            'chromosome': chrom,
+                            'start': start,
+                            'end': end
+                        })
+                except Exception as e:
+                    parse_errors += 1
+                    continue
+    except (IOError, OSError, UnicodeDecodeError) as e:
+        raise ValueError(f"Failed to read GTF file '{gtf_file}': {e}")
+    
+    if skipped_lines > 0:
+        warnings.warn(f"Skipped {skipped_lines} lines with insufficient columns in GTF file")
+    if parse_errors > 0:
+        warnings.warn(f"Failed to parse {parse_errors} lines in GTF file")
+    
+    if not gtf_data:
+        warnings.warn(f"No gene entries found in GTF file '{gtf_file}'")
     
     gtf_df = pd.DataFrame(gtf_data)
     

@@ -88,7 +88,8 @@ class SpatialVisualizer:
         subtype_col = subtype_col or f"{celltype}_subtype"
         unified_col = unified_col or f"{celltype}_subtype_unified"
         
-        output_path = Path(output_dir) / celltype / "spatial"
+        celltype_safe = celltype.replace(" ", "_")
+        output_path = Path(output_dir) / celltype_safe / "spatial"
         output_path.mkdir(parents=True, exist_ok=True)
         
         samples = adata.obs[sample_col].unique()
@@ -186,7 +187,8 @@ class SpatialVisualizer:
             warnings.warn("matplotlib or scanpy not installed")
             return
         
-        output_path = Path(output_dir) / celltype / "markers"
+        celltype_safe = celltype.replace(" ", "_")
+        output_path = Path(output_dir) / celltype_safe / "markers"
         output_path.mkdir(parents=True, exist_ok=True)
         
         all_markers = set()
@@ -263,7 +265,8 @@ class SpatialVisualizer:
             warnings.warn(f"Niche column '{niche_col}' not found")
             return
         
-        output_path = Path(output_dir) / celltype / "niche"
+        celltype_safe = celltype.replace(" ", "_")
+        output_path = Path(output_dir) / celltype_safe / "niche"
         output_path.mkdir(parents=True, exist_ok=True)
         
         samples = adata.obs[sample_col].unique()
@@ -295,7 +298,7 @@ class SpatialVisualizer:
                 else:
                     plt.close()
                     
-            except Exception as e:
+            except (ValueError, RuntimeError, ImportError) as e:
                 warnings.warn(f"Failed to plot niche for {sample}: {e}")
                 plt.close()
     
@@ -330,7 +333,8 @@ class SpatialVisualizer:
             warnings.warn(f"Subtype column '{subtype_col}' not found")
             return
         
-        output_path = Path(output_dir) / celltype / "statistics"
+        celltype_safe = celltype.replace(" ", "_")
+        output_path = Path(output_dir) / celltype_safe / "statistics"
         output_path.mkdir(parents=True, exist_ok=True)
         
         subtype_mask = adata.obs[subtype_col].notna()
@@ -383,6 +387,6 @@ class SpatialVisualizer:
             else:
                 plt.close()
                 
-        except Exception as e:
+        except (ValueError, RuntimeError, ImportError) as e:
             warnings.warn(f"Failed to plot proportion: {e}")
             plt.close()

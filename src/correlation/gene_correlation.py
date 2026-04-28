@@ -580,7 +580,7 @@ class GeneCorrelationAnalyzer:
                     
                     corr_chunk[i, j] = corr
                     pval_chunk[i, j] = pval
-                except Exception:
+                except (ValueError, ArithmeticError):
                     continue
         
         return corr_chunk, pval_chunk
@@ -712,7 +712,7 @@ class GeneCorrelationAnalyzer:
         try:
             import psutil
             return psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
-        except:
+        except (ImportError, OSError):
             return 0.0
     
     def save_results(

@@ -86,7 +86,7 @@ class NMFConsensus:
                 )
                 W = model.fit_transform(fused_scaled)
                 nmf_embeds.append(W)
-            except Exception as e:
+            except (ValueError, RuntimeError, ArithmeticError) as e:
                 warnings.warn(f"NMF run {i} failed: {e}")
                 continue
         

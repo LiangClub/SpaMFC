@@ -24,8 +24,8 @@ gseapy>=1.0
 # For CNV analysis (malignant cells only)
 infercnvpy>=0.4
 
-# For niche analysis
-scNiche>=1.1
+# For niche analysis (install from GitHub)
+scNiche @ git+https://github.com/ZJUFanLab/scNiche.git
 
 # For Excel report generation
 openpyxl>=3.0
