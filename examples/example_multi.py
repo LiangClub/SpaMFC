@@ -11,8 +11,6 @@ Feature selection varies by cell type:
 """
 
 import scanpy as sc
-import sys
-sys.path.insert(0, "../src")
 
 from SpaMFC import SpaMFCPipeline
 

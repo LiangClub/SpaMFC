@@ -446,9 +446,17 @@ SpaMFC/
 │   ├── cafs_config.yaml         # CAFs配置
 │   └── immune_config.yaml       # 免疫细胞配置
 ├── examples/                    # 示例代码
-│   ├── example_malignant.py     # 恶性细胞分析示例
-│   ├── example_cafs.py          # CAFs分析示例
-│   └── example_multi.py         # 多细胞类型分析示例
+│   ├── Python API 示例
+│   │   ├── example_malignant.py   # 恶性细胞分析示例
+│   │   ├── example_cafs.py      # CAFs分析示例
+│   │   └── example_multi.py     # 多细胞类型分析示例
+│   └── Shell CLI 示例
+│       ├── run_cafs.sh          # CAFs分析CLI示例
+│       ├── run_malignant.sh     # 恶性细胞分析CLI示例
+│       ├── run_multi.sh         # 多细胞类型分析CLI示例
+│       ├── run_corr.sh          # 基因相关性分析CLI示例
+│       ├── run_cnv.sh          # CNV推断分析CLI示例
+│       └── run_info.sh          # 数据信息查看CLI示例
 ├── docker/                      # Docker配置
 │   ├── Dockerfile               # GPU版本
 │   ├── Dockerfile.cpu           # CPU版本
