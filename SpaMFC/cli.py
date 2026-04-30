@@ -25,7 +25,7 @@ try:
 except ImportError:
     warnings.warn("scanpy not installed")
 
-from src.utils.logger import setup_logger, log_section
+from SpaMFC.utils.logger import setup_logger, log_section
 
 
 VALID_FEATURES = ["spatial", "cnv", "expression", "niche"]
@@ -876,7 +876,7 @@ def corr_command(args):
         cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from src.correlation import gene_correlation
+    from SpaMFC.correlation import gene_correlation
     
     target_genes = parse_gene_list(args.target_genes)
     de_genes = parse_gene_list(args.de_genes)
@@ -926,8 +926,8 @@ def run_command(args):
         cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from src.pipeline import SpaMFCPipeline
-    from src.config import ConfigManager
+    from SpaMFC.pipeline import SpaMFCPipeline
+    from SpaMFC.config import ConfigManager
     
     if args.config:
         pipeline = SpaMFCPipeline(args.config)
@@ -1022,7 +1022,7 @@ def run_multi_command(args):
         cli_logger.error("scanpy is not installed. Please install it first.")
         sys.exit(1)
     
-    from src.pipeline import SpaMFCPipeline
+    from SpaMFC.pipeline import SpaMFCPipeline
     
     celltypes = [c.strip() for c in args.celltypes.split(",")]
     
@@ -1125,7 +1125,7 @@ def info_command(args):
 def config_command(args):
     """Execute 'config' subcommand"""
     
-    from src.config import ConfigManager
+    from SpaMFC.config import ConfigManager
     
     template_files = {
         "default": "configs/default_config.yaml",
@@ -1167,8 +1167,8 @@ def cnv_command(args):
             cli_logger.error("Install with: pip install infercnvpy")
             sys.exit(1)
     
-    from src.cnv_inference import CNVInferencer, run_cnv_inference, add_gene_location
-    from src.visualization import CNVVisualizer
+    from SpaMFC.cnv_inference import CNVInferencer, run_cnv_inference, add_gene_location
+    from SpaMFC.visualization import CNVVisualizer
     
     reference_cat = [c.strip() for c in args.reference_cat.split(",")]
     

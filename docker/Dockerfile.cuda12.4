@@ -50,7 +50,7 @@ RUN useradd -m -s /bin/bash mambauser && \
 USER mambauser
 
 WORKDIR /app
-COPY --chown=mambauser:mambauser src/ ./src/
+COPY --chown=mambauser:mambauser SpaMFC/ ./SpaMFC/
 COPY --chown=mambauser:mambauser setup.py .
 COPY --chown=mambauser:mambauser README.md .
 

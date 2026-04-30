@@ -23,6 +23,8 @@ Requirements:
 
 from setuptools import setup, find_packages
 
+packages = find_packages(exclude=["tests", "tests.*"])
+
 setup(
     name="SpaMFC",
     version="2.2.0",
@@ -31,8 +33,7 @@ setup(
     author_email="spamfc@example.com",
     url="https://github.com/spamfc/SpaMFC",
     license="MIT",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=packages,
     install_requires=[
         "scanpy>=1.10",
         "numpy>=1.20",
@@ -62,7 +63,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "SpaMFC=cli:main",
+            "SpaMFC=SpaMFC.cli:main",
         ],
     },
     python_requires=">=3.10",

@@ -407,53 +407,57 @@ unification:
 
 ```
 SpaMFC/
-├── src/                          # 核心代码目录
-│   ├── __init__.py               # 包初始化
-│   ├── config.py                 # 配置管理模块
-│   ├── pipeline.py               # 主流程入口
-│   ├── cli.py                    # 命令行接口模块
-│   ├── features/                 # 特征提取模块
-│   │   ├── spatial.py            # 空间邻域特征
-│   │   ├── cnv.py                # CNV特征
-│   │   ├── expression.py         # 表达特征
-│   │   └── niche.py              # 生态位特征
-│   ├── fusion/                   # 特征融合模块
-│   │   ├── weighting.py          # 权重计算与融合
-│   │   ├── nmf.py                # NMF共识分解
-│   │   └── clustering.py         # 聚类
-│   ├── annotation/               # 功能注释模块
-│   │   ├── markers.py            # 特征基因分析
-│   │   ├── enrichment.py         # 功能富集
-│   │   └── niche_analysis.py     # 生态位分析
-│   ├── correlation/              # 基因相关性分析模块
-│   │   ├── gene_correlation.py   # 核心计算模块
-│   │   └── correlation_plot.py   # 可视化模块
-│   ├── cnv_inference/            # CNV推断模块
-│   │   ├── infercnv.py           # CNV推断核心
-│   │   ├── genomic_positions.py  # 基因位置处理
-│   │   └── cnv_scoring.py        # CNV评分计算
-│   ├── unification/              # 跨样本统一模块
-│   │   ├── similarity.py         # 相似性计算
-│   │   ├── fusion.py             # 相似度融合
-│   │   └── mapping.py            # 亚型映射
-│   └── visualization/            # 可视化模块
-│       ├── spatial_plot.py       # 空间可视化
-│       ├── cnv_plot.py           # CNV可视化
-│       └── report.py             # 报告生成
-├── configs/                      # 配置文件目录
-│   ├── default_config.yaml       # 默认配置
-│   ├── malignant_config.yaml     # 恶性细胞配置
-│   ├── cafs_config.yaml          # CAFs配置
-│   └── immune_config.yaml        # 免疫细胞配置
-├── examples/                     # 示例代码
-│   ├── example_malignant.py      # 恶性细胞分析示例
-│   ├── example_cafs.py           # CAFs分析示例
-│   └── example_multi.py          # 多细胞类型分析示例
-├── SpaMFC.py                     # 命令行入口
-├── setup.py                      # 安装脚本
-├── requirements.txt              # 依赖列表
-├── README.md                     # 项目文档
-└── LICENSE                       # 许可证
+├── SpaMFC/                      # 核心代码目录（Python包）
+│   ├── __init__.py              # 包初始化
+│   ├── config.py                # 配置管理模块
+│   ├── pipeline.py              # 主流程入口
+│   ├── cli.py                   # 命令行接口模块
+│   ├── features/                # 特征提取模块
+│   │   ├── spatial.py           # 空间邻域特征
+│   │   ├── cnv.py               # CNV特征
+│   │   ├── expression.py        # 表达特征
+│   │   └── niche.py             # 生态位特征
+│   ├── fusion/                  # 特征融合模块
+│   │   ├── weighting.py         # 权重计算与融合
+│   │   ├── nmf.py               # NMF共识分解
+│   │   └── clustering.py        # 聚类
+│   ├── annotation/              # 功能注释模块
+│   │   ├── markers.py           # 特征基因分析
+│   │   ├── enrichment.py        # 功能富集
+│   │   └── niche_analysis.py    # 生态位分析
+│   ├── correlation/             # 基因相关性分析模块
+│   │   ├── gene_correlation.py  # 核心计算模块
+│   │   └── correlation_plot.py  # 可视化模块
+│   ├── cnv_inference/           # CNV推断模块
+│   │   ├── infercnv.py          # CNV推断核心
+│   │   ├── genomic_positions.py # 基因位置处理
+│   │   └── cnv_scoring.py       # CNV评分计算
+│   ├── unification/             # 跨样本统一模块
+│   │   ├── similarity.py        # 相似性计算
+│   │   ├── fusion.py            # 相似度融合
+│   │   └── mapping.py           # 亚型映射
+│   └── visualization/           # 可视化模块
+│       ├── spatial_plot.py      # 空间可视化
+│       ├── cnv_plot.py          # CNV可视化
+│       └── report.py            # 报告生成
+├── configs/                     # 配置文件目录
+│   ├── default_config.yaml      # 默认配置
+│   ├── malignant_config.yaml    # 恶性细胞配置
+│   ├── cafs_config.yaml         # CAFs配置
+│   └── immune_config.yaml       # 免疫细胞配置
+├── examples/                    # 示例代码
+│   ├── example_malignant.py     # 恶性细胞分析示例
+│   ├── example_cafs.py          # CAFs分析示例
+│   └── example_multi.py         # 多细胞类型分析示例
+├── docker/                      # Docker配置
+│   ├── Dockerfile               # GPU版本
+│   ├── Dockerfile.cpu           # CPU版本
+│   └── Dockerfile.cuda12.4      # CUDA 12.4版本
+├── Dockerfile                   # 主Docker文件
+├── setup.py                     # 安装脚本
+├── requirements.txt             # 依赖列表
+├── README.md                    # 项目文档
+└── LICENSE                      # 许可证
 ```
 
 ## 依赖说明

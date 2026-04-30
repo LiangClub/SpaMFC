@@ -37,7 +37,7 @@ RUN pip install --no-cache-dir git+https://github.com/ZJUFanLab/scNiche.git
 USER mambauser
 
 WORKDIR /app
-COPY --chown=mambauser:mambauser src/ ./src/
+COPY --chown=mambauser:mambauser SpaMFC/ ./SpaMFC/
 COPY --chown=mambauser:mambauser setup.py .
 COPY --chown=mambauser:mambauser README.md .
 
