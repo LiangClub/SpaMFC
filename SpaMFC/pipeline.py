@@ -201,9 +201,12 @@ class SpaMFCPipeline:
         celltype_col = self.config.celltype_col
         sample_col = self.config.sample_col
         
-        target_cells = adata.obs[
-            adata.obs[celltype_col] == celltype
-        ].index.tolist()
+        if not adata.obs_names.is_unique:
+            adata.obs_names_make_unique()
+        
+        target_mask = adata.obs[celltype_col] == celltype
+        target_cells = adata.obs[target_mask].index.tolist()
+        target_indices = np.where(target_mask.values)[0].tolist()
         
         if len(target_cells) == 0:
             raise ValueError(f"Cell type '{celltype}' not found in adata.obs['{celltype_col}']")
@@ -220,7 +223,7 @@ class SpaMFCPipeline:
             global_cell_types = adata.obs[celltype_col].unique().tolist()
             
             spatial_df = self.spatial_extractor.extract_per_sample(
-                adata, target_cells, celltype_col, sample_col,
+                adata, target_cells, target_indices, celltype_col, sample_col,
                 self.config.spatial_key
             )
             
@@ -234,7 +237,7 @@ class SpaMFCPipeline:
                 log_step(self.logger, 2, 14, "Processing CNV features")
             
             cnv_df = self.cnv_processor.process_per_sample(
-                adata, target_cells,
+                adata, target_cells, target_indices,
                 self.config.cnv_key,
                 sample_col,
                 markers
@@ -250,7 +253,7 @@ class SpaMFCPipeline:
                 log_step(self.logger, 3, 14, "Processing expression features")
             
             expr_df = self.expr_processor.process_per_sample(
-                adata, target_cells, sample_col
+                adata, target_cells, target_indices, sample_col
             )
             
             if expr_df is not None:

@@ -145,6 +145,7 @@ class ExpressionFeatureProcessor:
         self,
         adata,
         target_cells: List[str],
+        target_indices: List[int],
         sample_col: str = "sample_id"
     ) -> Optional[pd.DataFrame]:
         """
@@ -153,6 +154,7 @@ class ExpressionFeatureProcessor:
         Parameters:
             adata: AnnData object
             target_cells: List of target cell names
+            target_indices: List of target cell integer indices
             sample_col: Column name for sample ID
         
         Returns:
@@ -163,13 +165,12 @@ class ExpressionFeatureProcessor:
         
         all_features = []
         
-        samples = adata.obs.loc[target_cells, sample_col].unique()
+        sample_values = adata.obs.iloc[target_indices][sample_col]
+        samples = sample_values.unique()
         
         for sample in samples:
-            sample_cells = [
-                c for c in target_cells
-                if c in adata.obs_names and adata.obs.loc[c, sample_col] == sample
-            ]
+            sample_cells_idx = np.where(sample_values.values == sample)[0]
+            sample_cells = [target_cells[i] for i in sample_cells_idx]
             
             if len(sample_cells) == 0:
                 continue

@@ -97,13 +97,12 @@ class SubtypeClusterer:
         subtype_col: str
     ):
         """Cluster per sample to avoid batch effects"""
-        samples = adata.obs[sample_col].unique()
+        W_df_cells = W_df.index.tolist()
+        sample_values = adata.obs.loc[W_df_cells, sample_col]
+        samples = sample_values.unique()
         
         for sample in samples:
-            sample_cells = [
-                c for c in W_df.index
-                if c in adata.obs_names and adata.obs.loc[c, sample_col] == sample
-            ]
+            sample_cells = sample_values[sample_values == sample].index.tolist()
             
             if len(sample_cells) == 0:
                 continue
